@@ -14,45 +14,71 @@
   /* ---------- bottom control bar ---------- */
   #bar { position:fixed; left:0; right:0; bottom:0; z-index:5;
     padding:6px 8px calc(8px + env(safe-area-inset-bottom));
-    display:flex; flex-direction:column; gap:6px; pointer-events:none; }
-  #trainRow, #ctrlRow { display:flex; gap:6px; justify-content:center; flex-wrap:wrap; pointer-events:none; }
+    display:flex; flex-direction:column; gap:6px; align-items:center; pointer-events:none; }
+  #trainRow, #ctrlRow { display:flex; gap:6px; justify-content:center; flex-wrap:wrap;
+    align-items:center; pointer-events:none; }
   button { pointer-events:auto; border:none; cursor:pointer;
     font-family:inherit; font-weight:bold; border-radius:16px;
     box-shadow:0 4px 0 rgba(0,0,0,.25); transition:transform .08s;
     background:#fff; color:#234; }
   button:active { transform:scale(.92) translateY(2px); box-shadow:0 1px 0 rgba(0,0,0,.25); }
 
-  .trainBtn { font-size:15px; padding:10px 12px; border-bottom:6px solid #999; min-width:86px; }
-  .trainBtn.on { background:#fff48d; transform:scale(1.06); }
-  .big { font-size:20px; padding:12px 18px; }
-  #goBtn.running { background:#ff8a80; }
+  .trainBtn { position:relative; font-size:14px; padding:10px 10px; border-bottom:6px solid #999; min-width:78px; }
+  .trainBtn.live { color:#fff; }
+  .trainBtn.sel { outline:4px solid #fff48d; }
+  .trainBtn.shake { animation:shake .4s; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+  .trainBtn .x { display:none; position:absolute; top:-8px; right:-8px; width:24px; height:24px;
+    border-radius:50%; background:#e74c3c; color:#fff; font-size:13px; line-height:24px; text-align:center;
+    box-shadow:0 2px 0 rgba(0,0,0,.3); }
+  .trainBtn.live .x { display:block; }
+
+  .stBtn { font-size:22px; padding:8px 10px; border-radius:14px; background:rgba(255,255,255,.7); box-shadow:none; }
+  .stBtn.on { background:#fff; box-shadow:0 3px 0 rgba(0,0,0,.25); transform:scale(1.1); }
+  #stationRow { display:flex; gap:4px; pointer-events:auto; background:rgba(255,255,255,.45);
+    border-radius:18px; padding:4px; }
+
+  .big { font-size:22px; padding:10px 14px; }
+  #goBtn.running { background:#ffd0cb; }
   #goBtn.stopped { background:#7ee787; }
   #whistleBtn { background:#9ad0ff; }
-  #speedGrp { display:flex; gap:4px; pointer-events:auto; background:rgba(255,255,255,.55);
-    border-radius:18px; padding:4px; }
-  #speedGrp button { font-size:22px; padding:8px 12px; border-radius:14px; box-shadow:none; background:transparent; }
-  #speedGrp button.on { background:#fff; box-shadow:0 2px 0 rgba(0,0,0,.2); }
   #camBtn { background:#e8d5ff; }
+  #tourBtn { background:#d2f5d2; }
+  #tourBtn.on { background:#7ee787; }
+  #bridgeBtn { background:#ffe2a8; }
+  #bridgeBtn.up { background:#ff8a80; }
 
-  /* ---------- top HUD ---------- */
-  #hud { position:fixed; top:10px; left:12px; z-index:5; font-size:22px; color:#fff;
-    background:rgba(30,60,90,.45); padding:6px 14px; border-radius:16px; }
-  #hud.pop { animation:pop .5s; }
+  #speedBox { display:flex; align-items:center; gap:8px; pointer-events:auto;
+    background:rgba(255,255,255,.7); border-radius:16px; padding:6px 12px; }
+  #speedBox.off { opacity:.4; pointer-events:none; }
+  #speedSlider { width:150px; accent-color:#2a6fd6; height:8px; }
+  #speedSlider::-webkit-slider-thumb { -webkit-appearance:none; width:26px; height:26px;
+    border-radius:50%; background:#2a6fd6; border:3px solid #fff; box-shadow:0 2px 3px rgba(0,0,0,.3); cursor:pointer; }
+  #speedVal { font-size:24px; font-weight:bold; color:#234; min-width:58px; text-align:right; }
+  #speedVal small { font-size:11px; color:#789; }
+
+  /* ---------- misc ---------- */
   #mute { position:fixed; top:8px; right:12px; z-index:5; font-size:22px; padding:8px 12px; border-radius:50%; }
-
-  /* ---------- banner ---------- */
-  #banner { position:fixed; top:14%; left:50%; transform:translateX(-50%); z-index:6;
-    text-align:center; pointer-events:none; opacity:0; transition:opacity .4s; max-width:92vw; }
-  #banner.show { opacity:1; animation:pop .5s; }
-  #bannerName { font-size:clamp(30px,7vw,56px); font-weight:bold; color:#fff;
+  #banner { position:fixed; top:13%; left:50%; transform:translateX(-50%); z-index:6;
+    text-align:center; pointer-events:none; opacity:0; transition:opacity .35s; }
+  #banner.show { opacity:1; animation:pop .45s; }
+  #bannerName { font-size:clamp(32px,7vw,58px); font-weight:bold; color:#fff;
     -webkit-text-stroke:2px rgba(0,0,0,.35); text-shadow:0 4px 0 rgba(0,0,0,.25); letter-spacing:2px; }
-  #bannerFact { font-size:clamp(15px,3vw,22px); color:#fff; background:rgba(30,60,90,.55);
-    border-radius:14px; padding:6px 14px; display:inline-block; margin-top:6px; }
   @keyframes pop { 0%{transform:translateX(-50%) scale(.4)} 60%{transform:translateX(-50%) scale(1.15)} 100%{transform:translateX(-50%) scale(1)} }
-  #hud.pop { animation:hudpop .5s; }
-  @keyframes hudpop { 0%{transform:scale(.6)} 60%{transform:scale(1.3)} 100%{transform:scale(1)} }
 
-  /* ---------- splash ---------- */
+  /* ---------- help overlay ---------- */
+  #helpBtn { position:fixed; top:8px; left:12px; z-index:5; font-size:22px; padding:8px 13px; border-radius:50%; }
+  #help { position:fixed; inset:0; z-index:9; display:none; align-items:center; justify-content:center;
+    background:rgba(20,50,80,.35); backdrop-filter:blur(2px); }
+  #help.show { display:flex; }
+  #helpCard { background:#fffdf2; border-radius:24px; padding:22px 30px;
+    box-shadow:0 10px 0 rgba(0,0,0,.25); display:grid; grid-template-columns:auto auto;
+    gap:10px 26px; font-size:17px; color:#234; max-height:86vh; overflow:auto; }
+  #helpCard .row { display:flex; align-items:center; gap:10px; white-space:nowrap; }
+  .k { display:inline-block; min-width:30px; text-align:center; background:#2a5fa3; color:#fff;
+    border-radius:8px; padding:3px 8px; font-size:14px; font-weight:bold;
+    box-shadow:0 2px 0 rgba(0,0,0,.3); }
+
   #splash { position:fixed; inset:0; z-index:10; display:flex; align-items:center; justify-content:center;
     background:rgba(60,140,200,.45); backdrop-filter:blur(3px); cursor:pointer; }
   #splashCard { background:#fffdf2; border-radius:28px; padding:34px 44px; text-align:center;
@@ -67,22 +93,44 @@
 <body>
 <canvas id="c"></canvas>
 
-<div id="hud">⭐ 0</div>
-<button id="mute" title="sound on/off">🔊</button>
+<button id="mute" title="sound">🔊</button>
+<button id="helpBtn" title="keys">❓</button>
+<div id="banner"><div id="bannerName"></div></div>
 
-<div id="banner"><div id="bannerName"></div><div id="bannerFact"></div></div>
+<div id="help">
+  <div id="helpCard">
+    <div class="row"><span class="k">1</span>–<span class="k">6</span> 🚂 trains</div>
+    <div class="row"><span class="k">7</span>–<span class="k">0</span> 🚉 stations</div>
+    <div class="row"><span class="k">Q</span>–<span class="k">Y</span> 🔀 switches</div>
+    <div class="row"><span class="k">B</span> 🌉 bridge</div>
+    <div class="row"><span class="k">D</span> ↔️ spawn direction</div>
+    <div class="row"><span class="k">V</span> 🔄 reverse train</div>
+    <div class="row"><span class="k">SPACE</span> 🎵 whistle</div>
+    <div class="row"><span class="k">G</span> ⏯ go / stop</div>
+    <div class="row"><span class="k">↑</span><span class="k">↓</span> 🚀 speed</div>
+    <div class="row"><span class="k">←</span><span class="k">→</span> 🚂 next train</div>
+    <div class="row"><span class="k">C</span> 📷 camera angle</div>
+    <div class="row"><span class="k">O</span> 🗺️ tour</div>
+    <div class="row"><span class="k">P</span> 📍 next spot</div>
+    <div class="row"><span class="k">M</span> 🔇 mute</div>
+    <div class="row"><span class="k">H</span> ❓ this card (<span class="k">ESC</span> closes)</div>
+    <div class="row"><span class="k">✕</span> 💨 remove train</div>
+  </div>
+</div>
 
 <div id="bar">
   <div id="trainRow"></div>
   <div id="ctrlRow">
-    <button id="goBtn" class="big running">🛑 STOP</button>
-    <button id="whistleBtn" class="big">🎵 WHISTLE!</button>
-    <div id="speedGrp">
-      <button data-sp="slow" title="slow">🐢</button>
-      <button data-sp="med" class="on" title="medium">🚂</button>
-      <button data-sp="fast" title="fast">🚀</button>
+    <div id="stationRow"></div>
+    <button id="goBtn" class="big running">⏸</button>
+    <button id="whistleBtn" class="big">🎵</button>
+    <div id="speedBox">
+      <input id="speedSlider" type="range" min="0" max="400" step="1" value="55">
+      <div id="speedVal">55<small> mph</small></div>
     </div>
     <button id="camBtn" class="big">📷</button>
+    <button id="tourBtn" class="big">🗺️</button>
+    <button id="bridgeBtn" class="big">🌉</button>
   </div>
 </div>
 
@@ -95,7 +143,6 @@
 </div>
 
 <script>
-  // show any runtime error on screen (handy on a tablet with no devtools)
   window.addEventListener('error', function (e) {
     var d = document.createElement('div');
     d.style.cssText = 'position:fixed;left:8px;top:48px;z-index:99;background:#b00;color:#fff;padding:6px 10px;border-radius:8px;font:12px monospace;max-width:90vw;white-space:pre-wrap';
