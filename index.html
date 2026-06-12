@@ -79,15 +79,6 @@
     border-radius:8px; padding:3px 8px; font-size:14px; font-weight:bold;
     box-shadow:0 2px 0 rgba(0,0,0,.3); }
 
-  #splash { position:fixed; inset:0; z-index:10; display:flex; align-items:center; justify-content:center;
-    background:rgba(60,140,200,.45); backdrop-filter:blur(3px); cursor:pointer; }
-  #splashCard { background:#fffdf2; border-radius:28px; padding:34px 44px; text-align:center;
-    box-shadow:0 10px 0 rgba(0,0,0,.25); animation:bounce 1.4s infinite; }
-  #splashCard .emoji { font-size:64px; }
-  #splashCard h1 { font-size:clamp(26px,6vw,44px); color:#2a5fa3; letter-spacing:2px; }
-  #splashCard .tap { display:inline-block; margin-top:12px; font-size:clamp(18px,4vw,26px);
-    background:#7ee787; padding:10px 24px; border-radius:18px; box-shadow:0 4px 0 rgba(0,0,0,.2); }
-  @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
 </style>
 </head>
 <body>
@@ -102,10 +93,11 @@
     <div class="row"><span class="k">1</span>–<span class="k">6</span> 🚂 trains</div>
     <div class="row"><span class="k">7</span>–<span class="k">0</span> 🚉 stations</div>
     <div class="row"><span class="k">Q</span>–<span class="k">Y</span> 🔀 switches</div>
+    <div class="row"><span class="k">U</span><span class="k">I</span><span class="k">K</span><span class="k">J</span><span class="k">L</span><span class="k">N</span> 🔀 far-world switches</div>
     <div class="row"><span class="k">B</span> 🌉 bridge</div>
     <div class="row"><span class="k">D</span> ↔️ spawn direction</div>
     <div class="row"><span class="k">V</span> 🔄 reverse train</div>
-    <div class="row"><span class="k">SPACE</span> 🎵 whistle</div>
+    <div class="row"><span class="k">S</span> 🎵 whistle</div>
     <div class="row"><span class="k">G</span> ⏯ go / stop</div>
     <div class="row"><span class="k">↑</span><span class="k">↓</span> 🚀 speed</div>
     <div class="row"><span class="k">←</span><span class="k">→</span> 🚂 next train</div>
@@ -131,14 +123,6 @@
     <button id="camBtn" class="big">📷</button>
     <button id="tourBtn" class="big">🗺️</button>
     <button id="bridgeBtn" class="big">🌉</button>
-  </div>
-</div>
-
-<div id="splash">
-  <div id="splashCard">
-    <div class="emoji">🚂💨</div>
-    <h1>CHOO CHOO WORLD</h1>
-    <div class="tap">TAP TO START!</div>
   </div>
 </div>
 

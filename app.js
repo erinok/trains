@@ -1,7 +1,8 @@
 /* CHOO CHOO WORLD — a three.js train set for a small engineer.
-   Bidirectional track network with six animated switches, trains at real top
-   speeds (spawnable in either direction — head-on crashes!), a double-leaf
-   drawbridge Choo Choo jumps, and four regions to explore. */
+   Four themed worlds (countryside, snow, desert, jungle) on one bidirectional
+   rail network with twelve animated switches, trains at real top speeds
+   (spawnable in either direction — head-on crashes!), and a double-leaf
+   drawbridge Choo Choo jumps. */
 'use strict';
 
 const PARAMS = new URLSearchParams(location.search);
@@ -47,10 +48,13 @@ sun.castShadow = true;
 sun.shadow.mapSize.set(4096, 4096);
 sun.shadow.camera.left = -175; sun.shadow.camera.right = 175;
 sun.shadow.camera.top = 175; sun.shadow.camera.bottom = -175;
-sun.shadow.camera.far = 520;
+sun.shadow.camera.far = 900;
 sun.shadow.bias = -0.0005;
 if (DEBUG_HIDE.has('shadows')) sun.castShadow = false;
 scene.add(sun);
+// the world is much bigger than the shadow box, so the sun (and its shadow
+// camera) glides along with wherever the camera is looking
+scene.add(sun.target);
 
 // ============================================================ small helpers
 const _dummy = new THREE.Object3D();
@@ -137,20 +141,20 @@ function namePlate(text, w, h) {
 // two "branch" legs on the other; the switch chooses the branch. Trains can
 // run either direction, so former merge points are real switches too.
 //
-//      N1 ━━ A (pond) ━━━━━━━ N2
-//      ┃  ┗━ AMT (mountains) ━┛┃
-//      D2                      B1
-//      ┃                       ┃
-//      N5 ━━━━━ MID ━━━━━━━━━ N6
-//      ┃                       ┃
-//      D1                      B2
+//      N1 ━━ A (pond) ━━━━━━━ N2          plus the wider rail network:
+//      ┃  ┗━ AMTW ━ NCN ━ AMTE ┛┃
+//      D2           ┊L1         B1          SNOW ━━ L2 ━━ DESERT
+//      ┃            ┊           ┃         NSA  NSB      NDA  NDB
+//      N5 ━━━━━ MID ━━━━━━━━━━ N6           ┊L1              ┊L3
+//      ┃                       ┃            NCN            JUNGLE
+//      D1                      B2          (classic)      NJA ∞ NJB
 //      ┃  ┏━ C (meadow) ━━━━┓  ┃
 //      N4 ━━ CHB (harbor) ━━━ N3
 const NODES = {
   N1: { pos: V(-75, 0, -48), dir: V(0.707, 0, -0.707), key: 'Q', sel: 0,
-        trunk: { seg: 'D2', end: 'to' }, branches: [{ seg: 'A', end: 'from' }, { seg: 'AMT', end: 'from' }] },
+        trunk: { seg: 'D2', end: 'to' }, branches: [{ seg: 'A', end: 'from' }, { seg: 'AMTW', end: 'from' }] },
   N2: { pos: V(75, 0, -48), dir: V(0.707, 0, 0.707), key: 'W', sel: 0,
-        trunk: { seg: 'B1', end: 'from' }, branches: [{ seg: 'A', end: 'to' }, { seg: 'AMT', end: 'to' }] },
+        trunk: { seg: 'B1', end: 'from' }, branches: [{ seg: 'A', end: 'to' }, { seg: 'AMTE', end: 'to' }] },
   N3: { pos: V(75, 0, 48), dir: V(-0.707, 0, 0.707), key: 'E', sel: 0,
         trunk: { seg: 'B2', end: 'to' }, branches: [{ seg: 'C', end: 'from' }, { seg: 'CHB', end: 'from' }] },
   N4: { pos: V(-75, 0, 48), dir: V(-0.707, 0, -0.707), key: 'R', sel: 0,
@@ -159,10 +163,31 @@ const NODES = {
         trunk: { seg: 'D1', end: 'to' }, branches: [{ seg: 'D2', end: 'from' }, { seg: 'MID', end: 'from' }] },
   N6: { pos: V(95, 0, 0), dir: V(0, 0, 1), key: 'Y', sel: 0,
         trunk: { seg: 'B2', end: 'from' }, branches: [{ seg: 'B1', end: 'to' }, { seg: 'MID', end: 'to' }] },
+  // junction in the mountains where the snow line peels off the classic world
+  NCN: { pos: V(0, 0, -95), dir: V(1, 0, 0), key: 'U', sel: 0,
+         trunk: { seg: 'AMTW', end: 'to' }, branches: [{ seg: 'AMTE', end: 'from' }, { seg: 'L1', end: 'from' }] },
+  // snow world: enter at the south, exit east toward the desert
+  NSA: { pos: V(0, 0, -355), dir: V(0, 0, -1), key: 'I', sel: 0,
+         trunk: { seg: 'L1', end: 'to' }, branches: [{ seg: 'SN1', end: 'from' }, { seg: 'SN2', end: 'from' }] },
+  NSB: { pos: V(65, 0, -425), dir: V(1, 0, 0), key: 'K', sel: 0,
+         trunk: { seg: 'L2', end: 'from' }, branches: [{ seg: 'SN1', end: 'to' }, { seg: 'SN2', end: 'to' }] },
+  // desert world: enter from the west, exit south toward the jungle
+  NDA: { pos: V(360, 0, -425), dir: V(1, 0, 0), key: 'J', sel: 0,
+         trunk: { seg: 'L2', end: 'to' }, branches: [{ seg: 'DS1', end: 'from' }, { seg: 'DS2', end: 'from' }] },
+  NDB: { pos: V(425, 0, -355), dir: V(0, 0, 1), key: 'L', sel: 0,
+         trunk: { seg: 'L3', end: 'from' }, branches: [{ seg: 'DS1', end: 'to' }, { seg: 'DS2', end: 'to' }] },
+  // jungle world: a double balloon — go down one leafy bulb and come back up
+  // the other. NJB has a single branch, so it's a plain through-connection
+  // (its branch's points-gap is covered by the trunk's track)
+  NJA: { pos: V(425, 0, -30), dir: V(0, 0, 1), key: 'N', sel: 0,
+         trunk: { seg: 'L3', end: 'to' }, branches: [{ seg: 'JN1', end: 'from' }, { seg: 'JN2', end: 'from' }] },
+  NJB: { pos: V(425, 0, 110), dir: V(0, 0, 1), sel: 0,
+         trunk: { seg: 'JN1', end: 'to' }, branches: [{ seg: 'JN2', end: 'to' }] },
 };
 const SEG_DEFS = {
   A:   { from: 'N1', to: 'N2', mids: [[-48, 0, -62.5], [-20, 0, -66], [10, 0, -66], [38, 0, -62]] },
-  AMT: { from: 'N1', to: 'N2', mids: [[-54, 0, -70], [-34, 0, -86], [-12, 0, -95], [12, 0, -95], [34, 0, -86], [54, 0, -70]] },
+  AMTW: { from: 'N1', to: 'NCN', mids: [[-54, 0, -70], [-34, 0, -86], [-15, 0, -94]] },
+  AMTE: { from: 'NCN', to: 'N2', mids: [[15, 0, -94], [34, 0, -86], [54, 0, -70]] },
   B1:  { from: 'N2', to: 'N6', mids: [[90, 0, -30], [95, 0, -16]] },
   B2:  { from: 'N6', to: 'N3', mids: [[95, 0, 16], [90, 0, 30]] },
   C:   { from: 'N3', to: 'N4', mids: [[48, 0, 62.5], [20, 0, 66], [-20, 0, 66], [-48, 0, 62.5]] },
@@ -170,6 +195,18 @@ const SEG_DEFS = {
   D1:  { from: 'N4', to: 'N5', mids: [[-90, 0, 30], [-95, 0, 16]] },
   D2:  { from: 'N5', to: 'N1', mids: [[-95, 0, -16], [-90, 0, -30]] },
   MID: { from: 'N5', to: 'N6', mids: [[-90, 0, -20], [-80, 0, -27], [-62, 0, -31], [-40, 0, -33], [-20, 0, -33], [0, 0, -32], [20, 0, -33], [40, 0, -33], [62, 0, -31], [80, 0, -27], [90, 0, -20]] },
+  // the wider network: links between worlds and each world's loop arcs.
+  // every tail eases onto its junction's lead axis — abrupt tail-to-lead
+  // angles make the catmull S-wiggle that wobbles trains
+  L1:  { from: 'NCN', to: 'NSA', mids: [[40, 0, -105], [70, 0, -130], [85, 0, -170], [80, 0, -230], [62, 0, -290], [36, 0, -322], [14, 0, -336], [4, 0, -341]] },
+  SN1: { from: 'NSA', to: 'NSB', mids: [[-6, 0, -382], [-22, 0, -398], [-40, 0, -414], [-50, 0, -432], [-46, 0, -454], [-30, 0, -470], [-8, 0, -479], [14, 0, -478], [30, 0, -468], [40, 0, -452], [44, 0, -438], [47, 0, -430]] },
+  SN2: { from: 'NSA', to: 'NSB', mids: [[6, 0, -382], [16, 0, -398], [28, 0, -410], [40, 0, -419], [47, 0, -423]] },
+  L2:  { from: 'NSB', to: 'NDA', mids: [[120, 0, -430], [180, 0, -435], [240, 0, -435], [300, 0, -430]] },
+  DS1: { from: 'NDA', to: 'NDB', mids: [[395, 0, -445], [425, 0, -462], [455, 0, -458], [477, 0, -441], [486, 0, -417], [480, 0, -394], [463, 0, -378], [447, 0, -370], [432, 0, -371]] },
+  DS2: { from: 'NDA', to: 'NDB', mids: [[385, 0, -410], [398, 0, -392], [410, 0, -380], [419, 0, -373]] },
+  L3:  { from: 'NDB', to: 'NJA', mids: [[428, 0, -300], [430, 0, -240], [430, 0, -160], [428, 0, -90]] },
+  JN1: { from: 'NJA', to: 'NJB', mids: [[440, 0, -8], [464, 0, 16], [478, 0, 42], [472, 0, 68], [452, 0, 88], [431, 0, 95]] },
+  JN2: { from: 'NJA', to: 'NJB', mids: [[410, 0, -8], [386, 0, 16], [372, 0, 42], [378, 0, 68], [398, 0, 88], [419, 0, 95]] },
 };
 const SEGS = {};
 for (const id in SEG_DEFS) {
@@ -416,7 +453,9 @@ function buildSwitch(nodeId) {
   switches.push(sw);
   return sw;
 }
-for (const nid of ['N1', 'N2', 'N3', 'N4', 'N5', 'N6']) buildSwitch(nid);
+// every two-branch node is a real switch; single-branch nodes (the jungle
+// balloon's far end) are plain through-connections and need no points
+for (const nid in NODES) if (NODES[nid].branches.length === 2) buildSwitch(nid);
 function toggleSwitch(sw) {
   sw.node.sel ^= 1;
   sw.aim();
@@ -568,9 +607,14 @@ function updateBridge(dt) {
     bridge.creakT -= dt;
     if (bridge.creakT <= 0) { bridge.creakT = 0.33; audio.creak(); }
   }
+  // the OFF lamp must go dark in body color too — an unlit green sphere still
+  // reads as a green light from across the canal
+  const up = !bridgeIsDown();
   for (const l of bridge.lamps) {
-    l.up.material.emissiveIntensity = bridgeIsDown() ? 0 : 0.9;
-    l.down.material.emissiveIntensity = bridgeIsDown() ? 0.9 : 0;
+    l.up.material.emissiveIntensity = up ? 1.1 : 0;
+    l.up.material.color.setHex(up ? 0xe74c3c : 0x3a201d);
+    l.down.material.emissiveIntensity = up ? 0 : 1.1;
+    l.down.material.color.setHex(up ? 0x1d3a25 : 0x2ecc71);
   }
 }
 function leafDirOf(side) {   // direction up a leaf at the current angle
@@ -583,8 +627,9 @@ function leafPoint(side, d) {
 }
 
 // ============================================================ ground & sky
-const ground = mesh(new THREE.CircleGeometry(360, 48), 0x7cc25e, { shadow: false, rough: 1 });
+const ground = mesh(new THREE.CircleGeometry(1100, 56), 0x7cc25e, { shadow: false, rough: 1 });
 ground.rotation.x = -Math.PI / 2;
+ground.position.set(160, 0, -150);   // centered on the four-world spread
 ground.receiveShadow = true;
 scene.add(ground);
 // region tints (height-separated for Safari, plus polygonOffset so distant
@@ -806,33 +851,37 @@ function buildTunnelAt(seg, tx, tz) {
     const q = segPoint(seg, s);
     tubePts.push(q.clone().setY(q.y + 1.5));
   }
+  // the bore lining — DoubleSide so the tunnel has a real, dark inside
   const tube = new THREE.Mesh(
     new THREE.TubeGeometry(new THREE.CatmullRomCurve3(tubePts, false), 24, 2.3, 18, false),
-    new THREE.MeshStandardMaterial({ color: 0x5c554e, roughness: 1, side: THREE.DoubleSide })
+    new THREE.MeshStandardMaterial({ color: 0x4a443e, roughness: 1, side: THREE.DoubleSide })
   );
   tube.receiveShadow = true;
   scene.add(tube);
+  // masonry portal RINGS (a solid disc here was the old "platform 9¾ wall")
   for (const s of [at.s - half, at.s + half]) {
     const f = segPoint(seg, s), t = segTangent(seg, s);
-    const ring = cyl(2.6, 2.6, 0.7, 0xb0a294, { axis: 'z', seg: 24 });
+    const ring = mesh(new THREE.TorusGeometry(2.45, 0.34, 10, 24), 0xb0a294, { rough: 1 });
     ring.position.set(f.x, f.y + 1.5, f.z);
     ring.lookAt(ring.position.clone().add(t));
     scene.add(ring);
   }
-  const lamp = new THREE.PointLight(0xffd9a0, 0.8, 14);
-  lamp.position.set(at.p.x, 2.4, at.p.z);
+  const lamp = new THREE.PointLight(0xffd9a0, 0.9, 16);
+  lamp.position.set(at.p.x, 2.6, at.p.z);
   scene.add(lamp);
   const t = segTangent(seg, at.s);
-  const hill = sph(5, 0x4f9d4a, { rough: 1 });
-  hill.scale.set(1.5, 0.92, 0.8);
+  // the hill is a fat torus stretched along the track: its hole IS the bore,
+  // so nothing crosses the inside (the old sphere capped the tunnel mid-bore)
+  const hill = mesh(new THREE.TorusGeometry(4.4, 2.05, 14, 26), 0x4f9d4a, { rough: 1 });
+  hill.scale.set(1.15, 1, 2.9);
   const m = new THREE.Matrix4().lookAt(at.p, at.p.clone().add(t), UP);
   hill.quaternion.setFromRotationMatrix(m);
-  hill.position.copy(at.p);
+  hill.position.copy(at.p).setY(at.p.y + 1.5);
   scene.add(hill);
   return at.p;
 }
-const tunnelWest = buildTunnelAt(SEGS.AMT, -30, -88);
-const tunnelEast = buildTunnelAt(SEGS.AMT, 30, -88);
+const tunnelWest = buildTunnelAt(SEGS.AMTW, -30, -88);
+const tunnelEast = buildTunnelAt(SEGS.AMTE, 30, -88);
 
 // ============================================================ canal & harbor
 const barge = new THREE.Group();
@@ -1065,10 +1114,61 @@ const cows = [];
   }
 })();
 
+// ============================================================ pigs
+const pigs = [];
+(function buildPigs() {
+  // a muddy wallow in the meadow, close enough to the line for a leap aboard
+  const mud = liftDecal(mesh(new THREE.CircleGeometry(5.5, 24), 0x8a6238, { shadow: false, rough: 1 }), 8);
+  mud.rotation.x = -Math.PI / 2;
+  mud.position.set(28, 0.115, 57);
+  mud.scale.set(1.25, 1, 1);
+  scene.add(mud);
+  function makePig(x, z, rot, scale) {
+    const p = new THREE.Group();
+    p.position.set(x, 0, z);
+    p.rotation.y = rot;
+    const pink = 0xf2a7b8, dark = 0xdb8ea1;
+    const body = sph(0.62, pink);
+    body.scale.set(0.95, 0.85, 1.35);
+    body.position.y = 0.62;
+    p.add(body);
+    const head = sph(0.4, pink);
+    head.position.set(0, 0.74, 0.82);
+    p.add(head);
+    const snout = cyl(0.17, 0.19, 0.22, dark, { axis: 'z' });
+    snout.position.set(0, 0.68, 1.2);
+    p.add(snout);
+    for (const s of [-1, 1]) {
+      const ear = cone(0.12, 0.26, dark, { seg: 8 });
+      ear.position.set(s * 0.22, 1.08, 0.74);
+      ear.rotation.x = -0.3;
+      p.add(ear);
+      const eye = sph(0.045, 0x222222, { shadow: false });
+      eye.position.set(s * 0.15, 0.85, 1.14);
+      p.add(eye);
+    }
+    for (const [lx, lz] of [[-0.28, 0.5], [0.28, 0.5], [-0.28, -0.5], [0.28, -0.5]]) {
+      const leg = cyl(0.09, 0.08, 0.45, pink);
+      leg.position.set(lx, 0.22, lz);
+      p.add(leg);
+    }
+    const tail = mesh(new THREE.TorusGeometry(0.09, 0.03, 6, 10, Math.PI * 1.5), pink);
+    tail.position.set(0, 0.72, -0.82);
+    p.add(tail);
+    p.scale.setScalar(scale || 1);
+    scene.add(p);
+    pigs.push(p);
+    tagTap(p, 'pig', p);
+  }
+  makePig(26, 55, 2.4, 1);
+  makePig(30.5, 58.5, -0.7, 0.8);
+  makePig(27.5, 60, 0.9, 0.65);
+})();
+
 // ============================================================ stations
 const STATIONS = [
   { emoji: '🦆', seg: SEGS.A, target: [10, -66], color: 0xe05d4b },
-  { emoji: '⛰️', seg: SEGS.AMT, target: [0, -95], color: 0x6b7fd6 },
+  { emoji: '⛰️', seg: SEGS.AMTW, target: [-16, -93], color: 0x6b7fd6 },
   { emoji: '🌼', seg: SEGS.C, target: [0, 66], color: 0xf2a14e },
   { emoji: '⚓', seg: SEGS.CHB, target: [44, 76], color: 0x3aa6a0 },
 ];
@@ -1185,7 +1285,7 @@ makeJungleTree(-46, -76, 2.2);
 makeJungleTree(18, 100, -0.8);
 {
   const hillMonkey = makeMonkey();
-  hillMonkey.position.set(tunnelWest.x, 6.2, tunnelWest.z);
+  hillMonkey.position.set(tunnelWest.x, 9.6, tunnelWest.z);
   scene.add(hillMonkey);
   monkeys.push(hillMonkey);
   tagTap(hillMonkey, 'monkey', hillMonkey);
@@ -1234,6 +1334,143 @@ makeJungleTree(18, 100, -0.8);
   heads.instanceColor.needsUpdate = true;
   scene.add(heads);
   scene.add(stems);
+})();
+
+// ============================================================ outer worlds
+// three more little circular worlds on the wider network: snow to the north,
+// desert beyond it to the east, and a jungle balloon to the south of that
+const volcanoCrater = V(425, 27, 45);
+let volcanoT = 1;
+(function buildOuterWorlds() {
+  // ground tints — each gets its OWN decal level and height (see z-fight notes)
+  [[0, -420, 100, 0xeef3f6, 9], [430, -415, 100, 0xe8cf9a, 10], [425, 40, 92, 0x3e8e4a, 11]]
+    .forEach(([x, z, r, c, lvl], i) => {
+      const tint = liftDecal(mesh(new THREE.CircleGeometry(r, 40), c, { shadow: false, rough: 1 }), lvl);
+      tint.rotation.x = -Math.PI / 2;
+      tint.position.set(x, 0.035 + i * 0.004, z);
+      scene.add(tint);
+    });
+
+  // ---- SNOW WORLD ⛄
+  for (let i = 0; i < 14; i++) {
+    const a = i * 1.83, r = 26 + (i % 5) * 10;
+    const x = Math.cos(a) * r, z = -422 + Math.sin(a) * r * 0.95;
+    if (!clearOfTrack(x, z, 4.5)) continue;
+    const t = makeTree('pine');
+    const cap = cone(0.62, 0.8, 0xf5f7fa);
+    cap.position.y = 4.15;
+    t.add(cap);
+    t.scale.setScalar(0.8 + (i % 3) * 0.35);
+    t.position.set(x, 0, z);
+    t.rotation.y = a;
+    scene.add(t);
+  }
+  const snowman = new THREE.Group();
+  snowman.position.set(6, 0, -442);
+  [[1.45, 1.2], [1.0, 3.2], [0.68, 4.5]].forEach(([r, y]) => {
+    const ball = sph(r, 0xfafdff);
+    ball.position.y = y;
+    snowman.add(ball);
+  });
+  const carrot = cone(0.13, 0.55, 0xff8c1a, { seg: 10 });
+  carrot.rotation.x = Math.PI / 2;
+  carrot.position.set(0, 4.55, 0.85);
+  snowman.add(carrot);
+  for (const s of [-1, 1]) {
+    const eye = sph(0.07, 0x222222, { shadow: false });
+    eye.position.set(s * 0.22, 4.72, 0.58);
+    snowman.add(eye);
+    const stick = cyl(0.05, 0.05, 1.6, 0x6b4a2a);
+    stick.position.set(s * 1.25, 3.4, 0);
+    stick.rotation.z = s * 1.9;
+    snowman.add(stick);
+  }
+  const hat = cyl(0.45, 0.45, 0.5, 0x2a2d31);
+  hat.position.y = 5.15;
+  snowman.add(hat);
+  const brim = cyl(0.72, 0.72, 0.08, 0x2a2d31);
+  brim.position.y = 4.92;
+  snowman.add(brim);
+  scene.add(snowman);
+  const igloo = sph(3.2, 0xf0f5fa, { rough: 0.9 });
+  igloo.scale.y = 0.62;
+  igloo.position.set(-24, 0, -442);
+  scene.add(igloo);
+  const door = cyl(1.1, 1.1, 2.2, 0xdde7f0, { axis: 'z' });
+  door.position.set(-24, 0.7, -438.8);
+  scene.add(door);
+  for (const [x, z, r, h] of [[-35, -508, 15, 26], [5, -514, 19, 36], [42, -500, 13, 24]]) {
+    const peak = cone(r, h, 0xdfe7ee, { rough: 1 });
+    peak.position.set(x, h / 2 - 0.5, z);
+    scene.add(peak);
+  }
+
+  // ---- DESERT WORLD 🏜️
+  function makeCactus(x, z, s) {
+    if (!clearOfTrack(x, z, 4)) return;
+    const c = new THREE.Group();
+    c.position.set(x, 0, z);
+    c.scale.setScalar(s);
+    const trunk = cyl(0.5, 0.58, 4.4, 0x3f9b4f);
+    trunk.position.y = 2.2;
+    c.add(trunk);
+    for (const sd of [-1, 1]) {
+      const armUp = cyl(0.3, 0.32, 1.7, 0x3f9b4f);
+      armUp.position.set(sd * 1.15, 2.9 + sd * 0.3, 0);
+      c.add(armUp);
+      const armOut = cyl(0.3, 0.32, 1.0, 0x3f9b4f, { axis: 'x' });
+      armOut.position.set(sd * 0.8, 2.15 + sd * 0.3, 0);
+      c.add(armOut);
+    }
+    c.rotation.y = x + z;
+    scene.add(c);
+  }
+  makeCactus(440, -424, 1);
+  makeCactus(455, -404, 0.8);
+  makeCactus(418, -438, 0.7);
+  makeCactus(468, -432, 0.9);
+  makeCactus(384, -432, 0.65);
+  const pyramid = cone(15, 17, 0xdfbe82, { seg: 4, rough: 1 });
+  pyramid.position.set(430, 8, -402);
+  pyramid.rotation.y = 0.4;
+  scene.add(pyramid);
+  // a red-rock arch
+  const arch = new THREE.Group();
+  arch.position.set(447, 0, -443);
+  for (const s of [-1, 1]) {
+    const pillar = box(2.6, 8.5, 2.6, 0xc96f4a, { rough: 1 });
+    pillar.position.set(s * 5.2, 4.25, 0);
+    arch.add(pillar);
+  }
+  const lintel = box(15, 2.6, 3.0, 0xc96f4a, { rough: 1 });
+  lintel.position.y = 9.4;
+  arch.add(lintel);
+  arch.rotation.y = -0.5;
+  scene.add(arch);
+
+  // ---- JUNGLE WORLD 🌋 (the trees come with monkeys aboard)
+  makeJungleTree(400, 20, 1.2);
+  makeJungleTree(455, 30, -0.5);
+  makeJungleTree(405, 68, 2.5);
+  makeJungleTree(448, 62, 0.8);
+  const volcano = cone(20, 30, 0x6a554a, { rough: 1, seg: 26 });
+  volcano.position.set(volcanoCrater.x, 14.4, volcanoCrater.z);
+  scene.add(volcano);
+  const lava = cone(5.5, 4, 0xff5a2a, { shadow: false, seg: 18 });
+  lava.material.emissive = new THREE.Color(0xff4400);
+  lava.material.emissiveIntensity = 0.7;
+  lava.position.set(volcanoCrater.x, 27, volcanoCrater.z);
+  scene.add(lava);
+  for (let i = 0; i < 8; i++) {
+    const a = i * 0.82;
+    const x = 425 + Math.cos(a) * (32 + (i % 3) * 5);
+    const z = 42 + Math.sin(a) * (30 + (i % 2) * 6);
+    if (!clearOfTrack(x, z, 4.5)) continue;
+    const t = makeTree('oak');
+    t.scale.setScalar(1.0 + (i % 3) * 0.3);
+    t.position.set(x, 0, z);
+    scene.add(t);
+  }
 })();
 
 // ============================================================ rolling stock kit
@@ -2042,6 +2279,13 @@ const audio = {
     this.tone(170, t, 0.75, { type: 'sawtooth', vol: 0.09, slide: -55, attack: 0.08 });
     this.tone(85, t, 0.75, { vol: 0.12, slide: -25, attack: 0.08 });
   },
+  oink() {
+    if (!this.ctx) return;
+    this.resume();
+    const t = this.ctx.currentTime + 0.02;
+    this.tone(250, t, 0.11, { type: 'sawtooth', vol: 0.13, slide: 170, attack: 0.01 });
+    this.tone(210, t + 0.15, 0.13, { type: 'sawtooth', vol: 0.13, slide: -90, attack: 0.01 });
+  },
   ding() {
     if (!this.ctx) return;
     this.tone(1175, this.ctx.currentTime + 0.01, 0.12, { vol: 0.06, attack: 0.005 });
@@ -2187,6 +2431,18 @@ function placeVehicles(train) {
 // train.flip keeps the bodies facing the way they were built.
 function reverseTrain(train) {
   if (train.state !== 'run') return;
+  // a touch of physics: a moving train brakes to a stop, sits for a beat,
+  // then pulls away the other way (handled in updateTrain) — pressing V
+  // again while still braking cancels the reverse
+  if (train.v > 0.3) {
+    train.revPending = !train.revPending;
+    train.revHold = 0;
+    audio.ding();
+    return;
+  }
+  doReverse(train);
+}
+function doReverse(train) {
   const last = train.offsets.length - 1;
   // resolve the rear-most vehicle — it becomes the new motion lead
   let i = train.hist.length - 1, u = train.u - train.offsets[last];
@@ -2297,6 +2553,14 @@ function despawnTrain(train, poof) {
   refreshUI();
 }
 
+// removing a train (✕ on its button, or the X key while following) crashes it
+// on the spot — the tumble pops each car and despawns the train when done
+function removeTrain(train) {
+  if (!train) return;
+  if (train.state === 'crashed') { despawnTrain(train, true); return; }
+  crashTrain(train);
+}
+
 // ---- arcade crash: cars tumble through the air until each pops in dust
 function crashTrain(train) {
   if (train.state === 'crashed') return;
@@ -2393,7 +2657,6 @@ function updateJump(train, dt) {
   for (let i = train.vehicles.length - 1; i >= 0; i--) {
     const v = train.vehicles[i];
     if (v === lead) continue;
-    if (bargeToss && i === 1 && j.tenderB) continue;     // frozen, awaits the toss
     const di = j.d - train.offsets[i];
     if (di < 0) {
       const { p, tan } = vehicleFrame(train, gapStartU(j.dir) + di);
@@ -2403,7 +2666,7 @@ function updateJump(train, dt) {
       if (train.flip) v.g.rotateY(Math.PI);
     } else if (di < leafLen) {
       placeOnJump(v, leafPoint(j.side, di), leafPoint(j.side, di + 1), train.flip);
-    } else if (!(bargeToss && i === 1)) {
+    } else {
       // off the leaf tip and into the canal
       train.vehicles.splice(i, 1);
       train.offsets.splice(i, 1);
@@ -2423,9 +2686,11 @@ function updateJump(train, dt) {
       j.landU = gapEndU(j.dir) + 8;
       const landF = frameOf(HARBOR, j.dir, j.landU);
       const land = landF.p.clone().add(V(0, RAIL_Y, 0));
-      const apexY = bridge.sides[j.side].hinge.y + Math.sin(bridge.maxAngle) * leafLen + 3.4;
-      const apex = tip.clone().add(land).multiplyScalar(0.5).setY(apexY);
-      j.b = [tip, apex, land];
+      // control point continues the leaf's direction so the flight leaves
+      // tangent to the ramp — the jump follows the arc of the bridge instead
+      // of kinking flat at the tip (also right when the bridge is half-raised)
+      const ctrl = tip.clone().addScaledVector(leafDirOf(j.side), tip.distanceTo(land) * 0.5);
+      j.b = [tip, ctrl, land];
       j.T = (tip.distanceTo(land) * 1.25) / j.v;
     }
   } else if (j.phase === 'air') {
@@ -2434,7 +2699,10 @@ function updateJump(train, dt) {
     const pos = quadBez(j.b[0], j.b[1], j.b[2], t01);
     const ahead = quadBez(j.b[0], j.b[1], j.b[2], Math.min(1, t01 + 0.04));
     placeOnJump(lead, pos, ahead, train.flip);
-    const tender = bargeToss ? train.vehicles[1] : null;
+    // the tender drops toward the barge WHILE the engine flies — updateTrain
+    // runs updateTenderFall every frame, so starting the fall here makes both
+    // halves of the storybook moment play at the same time
+    const tender = bargeToss && !train.tenderParked ? train.vehicles[1] : null;
     if (tender && !j.tenderB) {
       j.tenderB = {
         t: 0, T: 0.85,
@@ -2444,6 +2712,10 @@ function updateJump(train, dt) {
           barge.position.clone().add(V(0, 1.35, 1.6)),
         ],
       };
+      train.tenderFall = j.tenderB;
+      train.tender = tender;
+      train.vehicles.splice(1, 1);
+      train.offsets.splice(1, 1);
     }
     if (t01 >= 1) {
       train.state = 'run';
@@ -2451,17 +2723,12 @@ function updateJump(train, dt) {
       train.v = j.v;
       spawnPuff(lead.g.position.clone().setY(lead.g.position.y + 0.5), { size: 1.2, grow: 2, life: 1 });
       audio.thud();
-      if (tender && !train.tenderParked) {
-        train.tenderFall = j.tenderB;
-        train.tender = tender;
-      } else {
-        for (const v of train.vehicles) {
-          if (v === lead) continue;
-          const fwd = V(0, 0, 1).applyQuaternion(v.g.quaternion);
-          if (train.flip) fwd.negate();
-          setLoose(v, fwd.multiplyScalar(j.v * 0.8).add(V(0, 2.5, 0)));
-          if (!j.boomed) { j.boomed = true; audio.crash(0.7); showBanner('💥', '#fff'); }
-        }
+      for (const v of train.vehicles) {
+        if (v === lead) continue;
+        const fwd = V(0, 0, 1).applyQuaternion(v.g.quaternion);
+        if (train.flip) fwd.negate();
+        setLoose(v, fwd.multiplyScalar(j.v * 0.8).add(V(0, 2.5, 0)));
+        if (!j.boomed) { j.boomed = true; audio.crash(0.7); showBanner('💥', '#fff'); }
       }
       train.vehicles = [lead];
       train.offsets = [0];
@@ -2533,12 +2800,30 @@ function updateTrain(train, dt) {
   if (train.state === 'jump') { updateJump(train, dt); return; }
 
   let want = train.targetMph * SCALE;
+  if (train.revPending) {
+    want = 0;
+    if (train.v === 0) {
+      train.revHold += dt;
+      if (train.revHold > 0.4) {
+        train.revPending = false;
+        doReverse(train);
+      }
+    }
+  }
   const brakeD = train.v * train.v / (2 * DECEL) + 3;   // stopping distance at current v
   const cur = train.hist[train.hist.length - 1];
-  const gU = cur.seg === HARBOR ? gapStartU(cur.dir) : -1;
-  const onApproach = gU >= 0 && train.u < gU;
-  // every train takes the jump — only Choo Choo's whole consist survives it
-  if (onApproach && !bridgeIsDown() && train.u >= gU - 0.4) { startJump(train); return; }
+  // every train takes the jump — only Choo Choo's whole consist survives it.
+  // the window reaches to mid-gap: fast trains can step several units past the
+  // lip in one frame, and a train caught on the gap as the bridge rises
+  // (commonly while reversing) must jump too, not glide through the leaves
+  if (cur.seg === HARBOR && !bridgeIsDown()) {
+    const g0 = gapStartU(cur.dir), g1 = gapEndU(cur.dir);
+    if (train.u >= g0 - 0.4 && train.u <= (g0 + g1) / 2) {
+      train.u = Math.min(train.u, g0);
+      startJump(train);
+      return;
+    }
+  }
   const swU = wrongWaySwitchU(cur);
   const waitAtSwitch = swU >= 0 && train.u <= swU;
   if (waitAtSwitch) {
@@ -2583,6 +2868,18 @@ function updateTrain(train, dt) {
   if (train.loop) train.loop.update(train.v / SCALE, att);
 }
 
+// oriented test: generous along the vehicle's axis, tight across it — trains
+// waiting on the parallel track beside a switch are ~4 u away and must NOT hit
+const _colD = V(0, 0, 0), _colF = V(0, 0, 0);
+function vehiclesTouch(va, vb) {
+  _colD.copy(vb.g.position).sub(va.g.position);
+  const rr = (va.len + vb.len) * 0.46;
+  if (_colD.lengthSq() > rr * rr) return false;
+  _colF.set(0, 0, 1).applyQuaternion(va.g.quaternion);
+  const along = _colD.dot(_colF);
+  const latSq = _colD.lengthSq() - along * along;
+  return Math.abs(along) < (va.len + vb.len) * 0.5 && latSq < 2.0 * 2.0;
+}
 function checkCollisions() {
   for (let i = 0; i < trains.length; i++) {
     for (let j = i + 1; j < trains.length; j++) {
@@ -2591,8 +2888,7 @@ function checkCollisions() {
       let hit = false;
       for (const va of a.vehicles) {
         for (const vb of b.vehicles) {
-          const rr = (va.len + vb.len) * 0.46;
-          if (va.g.position.distanceToSquared(vb.g.position) < rr * rr) { hit = true; break; }
+          if (vehiclesTouch(va, vb)) { hit = true; break; }
         }
         if (hit) break;
       }
@@ -2752,6 +3048,7 @@ const hoppers = [];
 for (const d of [ducks[0], ducks[1]]) hoppers.push({ obj: d, kind: 'duck' });
 for (const m of monkeys) hoppers.push({ obj: m, kind: 'monkey' });
 for (const c of cows) hoppers.push({ obj: c, kind: 'cow' });
+for (const p of pigs) hoppers.push({ obj: p, kind: 'pig' });
 for (const h of hoppers) {
   h.homeParent = h.obj.parent;
   h.homePos = h.obj.position.clone();
@@ -2760,41 +3057,60 @@ for (const h of hoppers) {
 const riders = [];
 let riderCooldown = 3;
 const _wv = V(0, 0, 0);
+// every car can carry one animal; the rearmost free car gets the next rider.
+// a single-vehicle train (CATCH ME) offers its engine as the seat
+function freeSeat(train) {
+  if (train.vehicles.length === 1) return train.vehicles[0].rider ? null : train.vehicles[0];
+  for (let i = train.vehicles.length - 1; i >= 1; i--) {
+    if (!train.vehicles[i].rider) return train.vehicles[i];
+  }
+  return null;
+}
+function mountRider(h, train, car) {
+  h.obj.userData.riding = true;
+  scene.attach(h.obj);
+  car.rider = h;
+  riders.push({ h, train, car, t: 0, mode: 'jump', from: h.obj.position.clone() });
+  if (h.kind === 'duck') audio.quack(1.4);
+  else if (h.kind === 'monkey') audio.monkey();
+  else if (h.kind === 'pig') audio.oink();
+  else audio.moo();
+  audio.wee();
+}
 function tryRiders(dt) {
   riderCooldown -= dt;
   if (riderCooldown > 0) return;
   for (const train of trains) {
-    if (train.state !== 'run' || train.v < 1 || train.rider) continue;
+    if (train.state !== 'run' || train.v < 1) continue;
+    const car = freeSeat(train);
+    if (!car) continue;
     const p = train.vehicles[0].g.position;
     for (const h of hoppers) {
       if (h.obj.userData.riding) continue;
       h.obj.getWorldPosition(_wv);
-      if (_wv.distanceToSquared(p) > 13 * 13) continue;
-      h.obj.userData.riding = true;
-      scene.attach(h.obj);
-      const car = train.vehicles[train.vehicles.length - 1];
-      riders.push({ h, train, car, t: 0, mode: 'jump', from: _wv.clone() });
-      train.rider = h;
-      if (h.kind === 'duck') audio.quack(1.4);
-      else if (h.kind === 'monkey') audio.monkey();
-      else audio.moo();
-      audio.wee();
-      riderCooldown = 7;
+      const reach = h.kind === 'cow' ? 16 : 13;   // cows take a heroic leap from the farm
+      if (_wv.distanceToSquared(p) > reach * reach) continue;
+      mountRider(h, train, car);
+      riderCooldown = 5;
       return;
     }
   }
 }
 function dismountRider(r) {
-  if (r.train.rider === r.h) r.train.rider = null;
+  if (r.car.rider === r.h) r.car.rider = null;
   scene.attach(r.h.obj);
   r.mode = 'home';
   r.t = 0;
   r.from = r.h.obj.position.clone();
 }
+// seat height per animal: the monkey is modeled hanging from its hands (the
+// whole body hangs BELOW its origin), so its origin must ride high — feet on
+// the car roof, body and raised arms in the air, not buried inside the car
+const SEAT_Y = { duck: 2.4, monkey: 4.0, cow: 2.1, pig: 2.3 };
 function updateRiders(dt) {
   for (let i = riders.length - 1; i >= 0; i--) {
     const r = riders[i];
-    const seatY = r.h.kind === 'cow' ? 2.1 : 2.4;
+    const seatY = SEAT_Y[r.h.kind] || 2.4;
     if (r.mode === 'jump') {
       if (!r.train.vehicles.includes(r.car) || r.train.state === 'crashed') { dismountRider(r); continue; }
       r.t += dt / 0.7;
@@ -2831,11 +3147,90 @@ function updateRiders(dt) {
   }
 }
 
+// ============================================================ wandering cows
+// every so often a cow ambles from the farm onto the nearby line and loiters.
+// a train bearing down either tempts her aboard (free car, half the time) or
+// shoos her aside in a hop of dust — wandering cows never crash a train
+const cowWander = { timer: 14, active: null };
+const COW_SPOTS = [nearestOnSeg(SEGS.D1, -95, 16).p, nearestOnSeg(SEGS.D2, -95, -16).p];
+function updateCowWander(dt) {
+  const w = cowWander;
+  if (!w.active) {
+    w.timer -= dt;
+    if (w.timer > 0) return;
+    w.timer = 18 + Math.random() * 22;
+    const c = cows.find(cc => !cc.userData.riding && !cc.userData.wander);
+    if (!c) return;
+    const spot = COW_SPOTS[(Math.random() * COW_SPOTS.length) | 0].clone();
+    w.active = { c, spot, phase: 'go', t: 0, home: c.position.clone(), homeRot: c.rotation.y };
+    c.userData.wander = true;
+    audio.moo();
+  }
+  const a = w.active, c = a.c;
+  if (c.userData.riding) {                 // tempted aboard: the rider system has her now
+    c.userData.wander = false;
+    w.active = null;
+    return;
+  }
+  if (a.phase === 'go' || a.phase === 'home') {
+    const target = a.phase === 'go' ? a.spot : a.home;
+    const d = target.clone().sub(c.position).setY(0);
+    if (d.length() < 0.4) {
+      if (a.phase === 'go') { a.phase = 'loiter'; a.t = 0; c.position.y = 0; }
+      else {
+        c.position.copy(a.home);
+        c.rotation.set(0, a.homeRot, 0);
+        c.userData.wander = false;
+        w.active = null;
+      }
+      return;
+    }
+    d.normalize();
+    c.position.addScaledVector(d, dt * 2.2);
+    c.position.y = Math.abs(Math.sin(elapsed * 8)) * 0.15;   // ambling bob
+    c.rotation.y = Math.atan2(d.x, d.z);
+  } else if (a.phase === 'loiter') {
+    a.t += dt;
+    for (const train of trains) {
+      if (train.state !== 'run' || train.v < 0.5) continue;
+      const lead = train.vehicles[train.flip ? train.vehicles.length - 1 : 0];
+      if (lead.g.position.distanceTo(c.position) > 10) continue;
+      const car = Math.random() < 0.5 ? freeSeat(train) : null;
+      if (car) {
+        mountRider(hoppers.find(h => h.obj === c), train, car);
+        c.userData.wander = false;
+        w.active = null;
+      } else {
+        a.phase = 'shoo';
+        a.t = 0;
+        a.shooFrom = c.position.clone();
+        a.shooTo = c.position.clone()
+          .addScaledVector(a.home.clone().sub(c.position).setY(0).normalize(), 5);
+        audio.moo();
+        dustPoof(c.position.clone().setY(1));
+      }
+      return;
+    }
+    if (a.t > 30) a.phase = 'home';        // nothing came by — wander home
+  } else if (a.phase === 'shoo') {
+    a.t += dt / 0.5;
+    const t01 = Math.min(1, a.t);
+    c.position.copy(a.shooFrom).lerp(a.shooTo, t01);
+    c.position.y = Math.sin(t01 * Math.PI) * 1.7;
+    c.rotation.z = Math.sin(t01 * Math.PI * 2) * 0.25;
+    if (t01 >= 1) { c.rotation.z = 0; a.phase = 'home'; }
+  }
+}
+
 // ============================================================ cameras
-const cam = { mode: 'tour', angle: 0, target: null, poi: null };
+const cam = { mode: 'overview', angle: 0, target: null, poi: null };
 const CAM_ANGLES = ['chase', 'side', 'front', 'cab', 'top'];
 const camPos = V(0, 110, 150);
 const camLook = V(0, 0, 0);
+// the map view: high above the whole world, gently tilted so it reads as a
+// landscape rather than a blueprint. fog and the far plane ease out with it
+const OVERVIEW = { pos: V(185, 780, 60), look: V(185, 0, -155) };
+const FOG_NEAR = scene.fog.near, FOG_FAR = scene.fog.far;
 
 const POIS = [];
 let poiIdx = 0;
@@ -2850,6 +3245,9 @@ function buildPOIs() {
     { pos: NODES.N1.pos.clone().add(V(16, 11, 11)), look: NODES.N1.pos.clone() },
     { pos: NODES.N5.pos.clone().add(V(14, 10, -12)), look: NODES.N5.pos.clone() },
     { pos: NODES.N6.pos.clone().add(V(-14, 10, -12)), look: NODES.N6.pos.clone() },
+    { pos: V(22, 11, -428), look: V(6, 3, -442) },        // the snowman
+    { pos: V(447, 12, -388), look: V(430, 6, -402) },     // the pyramid
+    { pos: V(450, 18, 68), look: V(425, 12, 45) },        // the volcano
     { pos: V(0, 170, 150), look: V(0, 0, 8) },
   );
 }
@@ -2866,6 +3264,20 @@ function stationView(st) {
 }
 function updateCamera(dt, t) {
   let want, look, k = 2.2;
+  if (derrick.active && derrick.phase !== 'leave') {
+    // rescue showtime: whatever mode we were in, ride along with the derrick
+    // until the tender is back on the rails (then fall back to that mode)
+    const dp = derrick.v.g.position;
+    look = derrick.tender
+      ? dp.clone().lerp(derrick.tender.g.position, 0.4).add(V(0, 1.5, 0))
+      : dp.clone().add(V(0, 1.5, 0));
+    want = look.clone().add(V(16, 9, 12));
+    camPos.lerp(want, PARAMS.has('snap') ? 1 : Math.min(1, dt * 2.6));
+    camLook.lerp(look, PARAMS.has('snap') ? 1 : Math.min(1, dt * 4));
+    camera.position.copy(camPos);
+    camera.lookAt(camLook);
+    return;
+  }
   if (cam.mode === 'follow' && cam.target) {
     const train = cam.target;
     if (train.state === 'crashed') {
@@ -2910,6 +3322,9 @@ function updateCamera(dt, t) {
       want = p.clone().add(V(4, 30, 0.01));
       look = p.clone();
     }
+  } else if (cam.mode === 'overview') {
+    want = OVERVIEW.pos; look = OVERVIEW.look;
+    k = 2.4;
   } else if (cam.mode === 'poi' && cam.poi) {
     want = cam.poi.pos; look = cam.poi.look;
     k = 2.4;
@@ -2995,10 +3410,10 @@ TRAIN_DEFS.forEach((def, i) => {
   x.className = 'x';
   x.textContent = '✕';
   b.appendChild(x);
+  x.addEventListener('pointerdown', e => e.stopPropagation());
   x.addEventListener('click', e => {
     e.stopPropagation();
-    const tr = trains.find(t => t.def === def);
-    if (tr) despawnTrain(tr, true);
+    removeTrain(trains.find(t => t.def === def));
   });
   b.addEventListener('click', () => {
     const existing = trains.find(t => t.def === def);
@@ -3044,7 +3459,7 @@ function refreshUI() {
     goBtn.classList.toggle('running', sel.targetMph > 0);
     goBtn.classList.toggle('stopped', sel.targetMph === 0);
   }
-  $('tourBtn').classList.toggle('on', cam.mode === 'tour');
+  $('tourBtn').classList.toggle('on', cam.mode === 'tour' || cam.mode === 'overview');
   audio.setTheme(sel ? sel.def.id : 'world');
 }
 function setSelSpeed(mph) {
@@ -3085,7 +3500,9 @@ $('camBtn').addEventListener('click', () => {
   refreshUI();
 });
 $('tourBtn').addEventListener('click', () => {
-  cam.mode = 'tour';
+  // first press: the top-down map of the whole world; press again: the
+  // flying tour; alternates between the two world views
+  cam.mode = cam.mode === 'overview' ? 'tour' : 'overview';
   cam.target = null;
   audio.ding();
   refreshUI();
@@ -3111,11 +3528,34 @@ function cycleTrain(dir) {
   selectTrain(trains[idx]);
   audio.ding();
 }
-const SWITCH_KEY_ORDER = ['q', 'w', 'e', 'r', 't', 'y'];
+// what the followed train will meet next, along its direction of travel: the
+// drawbridge if the gap is still ahead on this segment, else the switch at
+// the far node. the hist chain points along travel, so this stays correct
+// when the train is running in reverse
+function toggleUpcoming(train) {
+  const cur = train.hist[train.hist.length - 1];
+  if (cur.seg === HARBOR && train.u < gapStartU(cur.dir)) {
+    setBridge(!bridge.up);
+    return true;
+  }
+  const node = cur.dir > 0 ? NODES[cur.seg.to] : NODES[cur.seg.from];
+  const sw = switches.find(s => s.node === node);
+  if (sw) { toggleSwitch(sw); return true; }
+  return false;
+}
+const SWITCH_KEY_ORDER = ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'k', 'j', 'l', 'n'];
 function pressKey(key, code) {
   const k = (key || '').toLowerCase();
   const swIdx = SWITCH_KEY_ORDER.indexOf(k);
-  if (code === 'Space' || key === ' ') { $('whistleBtn').click(); return true; }
+  if (code === 'Space' || key === ' ') {
+    // in follow mode, space silently flips whatever is coming up next
+    // (the horn lives on S now)
+    const sel = cam.mode === 'follow' ? cam.target : null;
+    if (sel && sel.state === 'run' && toggleUpcoming(sel)) return true;
+    $('whistleBtn').click();
+    return true;
+  }
+  if (k === 's') { $('whistleBtn').click(); return true; }
   else if (key >= '1' && key <= '6') TRAIN_DEFS[+key - 1].btn.click();
   else if (key >= '7' && key <= '9') selectStation(+key - 7);
   else if (key === '0') selectStation(3);
@@ -3131,6 +3571,10 @@ function pressKey(key, code) {
   else if (k === 'v') {
     const sel = cam.mode === 'follow' ? cam.target : null;
     if (sel) reverseTrain(sel);
+  }
+  else if (k === 'x') {
+    const sel = cam.mode === 'follow' ? cam.target : null;
+    if (sel) removeTrain(sel);
   }
   else if (k === 'p') {
     poiIdx = (poiIdx + 1) % POIS.length;
@@ -3174,6 +3618,9 @@ canvas.addEventListener('pointerdown', e => {
   } else if (kind === 'cow') {
     audio.moo();
     data.userData.mooT = 1;
+  } else if (kind === 'pig') {
+    audio.oink();
+    data.userData.oinkT = 1;
   } else if (kind === 'train') {
     audio.horn(data.def.horn);
     selectTrain(data);
@@ -3200,7 +3647,7 @@ function step(dt) {
       t.def.id + ':' + t.hist[t.hist.length - 1].seg.id + '@' + t.u.toFixed(1)
       + (t.flip ? 'R' : '') + ' v=' + t.v.toFixed(1) + ' n=' + t.vehicles.length).join(' | ')
       + ' dk=' + (derrick.active ? derrick.phase + '@' + derrick.u.toFixed(0) : '-')
-      + ' fc=' + freeCars.length);
+      + ' fc=' + freeCars.length + ' r=' + riders.map(r => r.h.kind + ':' + r.mode).join(','));
   }
   if (started) audio.updateMusic();
   updateBridge(dt);
@@ -3224,6 +3671,7 @@ function step(dt) {
   }
   tryRiders(dt);
   updateRiders(dt);
+  updateCowWander(dt);
   for (const d of ducks) {
     if (d.userData.riding) continue;
     const a = d.userData.anim;
@@ -3263,9 +3711,23 @@ function step(dt) {
       c.rotation.z = Math.sin(c.userData.mooT * 14) * 0.06;
     }
   }
+  for (const p of pigs) {
+    if (p.userData.riding) continue;
+    if (p.userData.oinkT > 0) {
+      p.userData.oinkT = Math.max(0, p.userData.oinkT - dt);
+      p.rotation.z = Math.sin(p.userData.oinkT * 18) * 0.1;
+    }
+  }
   for (const c of clouds) {
     c.position.x += c.userData.v * dt;
     if (c.position.x > 290) c.position.x = -290;
+  }
+  volcanoT -= dt;
+  if (volcanoT < 0) {
+    volcanoT = 0.45 + Math.random() * 0.7;
+    spawnPuff(volcanoCrater.clone().add(V((Math.random() - 0.5) * 4, 1, (Math.random() - 0.5) * 4)),
+      { size: 1.7, grow: 2.8, life: 2.4, color: Math.random() < 0.3 ? 0x444444 : 0x777777,
+        vel: V((Math.random() - 0.5) * 0.8, 2.8 + Math.random() * 1.2, (Math.random() - 0.5) * 0.8) });
   }
   barge.rotation.z = Math.sin(elapsed * 0.7) * 0.015;
   barge.position.y = Math.sin(elapsed * 0.9) * 0.05;
@@ -3285,6 +3747,24 @@ function step(dt) {
     camera.lookAt(vx, 1.2, vz);
   } else {
     updateCamera(dt, elapsed);
+  }
+  // the sun's shadow box follows the camera's gaze so shadows exist everywhere
+  sun.target.position.set(camLook.x, 0, camLook.z);
+  sun.position.set(camLook.x + 120, 170, camLook.z + 60);
+  // fog and the far plane ease out for the high map view, back in on the ground
+  const wantFar = cam.mode === 'overview' ? 2400 : FOG_FAR;
+  if (Math.abs(scene.fog.far - wantFar) > 1) {
+    const e = Math.min(1, dt * 2.5);
+    scene.fog.far += (wantFar - scene.fog.far) * e;
+    scene.fog.near += ((cam.mode === 'overview' ? 1500 : FOG_NEAR) - scene.fog.near) * e;
+    camera.far = Math.max(1100, scene.fog.far + 300);
+    camera.updateProjectionMatrix();
+    const sb = cam.mode === 'overview' ? 580 : 175;
+    if (sun.shadow.camera.right !== sb) {
+      sun.shadow.camera.left = -sb; sun.shadow.camera.right = sb;
+      sun.shadow.camera.top = sb; sun.shadow.camera.bottom = -sb;
+      sun.shadow.camera.updateProjectionMatrix();
+    }
   }
 }
 
@@ -3329,34 +3809,19 @@ if (PARAMS.has('dbg')) {
   console.log('DBG ' + JSON.stringify(info));
 }
 
-const splash = $('splash');
-function start() {
-  if (started) return;
+// no intro screen: the game opens straight onto the world map with no trains.
+// audio still needs a user gesture, so the first tap or key wakes it
+function wakeAudio() {
   started = true;
   audio.init();
   audio.resume();
-  splash.style.display = 'none';
-  if (!trains.length) {
-    const tr = spawnTrain(trainIdx('choochoo'), 0);
-    if (tr) {
-      selectTrain(tr);
-      showBanner('CHOO CHOO!', '#fff');
-    }
-  }
-  refreshUI();
 }
-splash.addEventListener('pointerdown', start);
+window.addEventListener('pointerdown', wakeAudio);
+window.addEventListener('keydown', wakeAudio);
 
-if (PARAMS.has('nosplash')) {
-  splash.style.display = 'none';
-  started = true;
-  applyTestParams();
-  if (!trains.length && !PARAMS.has('empty')) spawnTrain(trainIdx('choochoo'), 0) && selectTrain(trains[0]);
-  if (PARAMS.has('tour')) { cam.mode = 'tour'; cam.target = null; }
-  if (PARAMS.has('help')) toggleHelp();
-  if (PARAMS.has('warp')) for (let i = 0; i < +PARAMS.get('warp') * 30; i++) step(1 / 30);
-} else {
-  applyTestParams();
-}
+applyTestParams();
+if (PARAMS.has('tour')) { cam.mode = 'tour'; cam.target = null; }
+if (PARAMS.has('help')) toggleHelp();
+if (PARAMS.has('warp')) for (let i = 0; i < +PARAMS.get('warp') * 30; i++) step(1 / 30);
 refreshUI();
 tick();
