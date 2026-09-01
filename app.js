@@ -2443,9 +2443,12 @@ function reverseTrain(train) {
   doReverse(train);
 }
 function doReverse(train) {
-  const last = train.offsets.length - 1;
-  // resolve the rear-most vehicle — it becomes the new motion lead
-  let i = train.hist.length - 1, u = train.u - train.offsets[last];
+  // Offsets are measured back from the motion lead. The vehicle array stays
+  // in engine-to-tail order, so after one reversal its last entry is the lead,
+  // not the rear. Reverse around the greatest offset to keep every offset
+  // non-negative across repeated reversals.
+  const rearOffset = Math.max(...train.offsets);
+  let i = train.hist.length - 1, u = train.u - rearOffset;
   while (u < 0 && i > 0) { i--; u += train.hist[i].seg.len; }
   const newHist = [];
   for (let k = train.hist.length - 1; k >= i; k--) {
@@ -2454,8 +2457,7 @@ function doReverse(train) {
   train.hist = newHist;
   const leadSeg = newHist[newHist.length - 1].seg;
   train.u = leadSeg.len - THREE.MathUtils.clamp(u, 0, leadSeg.len);
-  const O = train.offsets[last];
-  train.offsets = train.offsets.map(o => O - o);
+  train.offsets = train.offsets.map(o => rearOffset - o);
   train.flip = !train.flip;
   train.waitToot = false;
   audio.clunk();
