@@ -3588,9 +3588,27 @@ function pressKey(key, code) {
   else if (key === 'ArrowDown') { const sel = cam.mode === 'follow' ? cam.target : null; if (sel) setSelSpeed(sel.targetMph - 5); return true; }
   else if (key === 'ArrowLeft') { cycleTrain(-1); return true; }
   else if (key === 'ArrowRight') { cycleTrain(1); return true; }
-  return false;
+  else return false;
+  return true;
 }
-window.addEventListener('keydown', e => { if (pressKey(e.key, e.code)) e.preventDefault(); });
+const KEY_DEBOUNCE_MS = 150;
+const lastKeyPress = new Map();
+window.addEventListener('keydown', e => {
+  const id = e.code || (e.key || '').toLowerCase();
+  const now = performance.now();
+  const last = lastKeyPress.get(id);
+
+  // Ignore a held key's browser auto-repeat and the rapid second keydown that
+  // noisy keyboards can emit around a single physical press.
+  if (last !== undefined && (e.repeat || now - last < KEY_DEBOUNCE_MS)) {
+    e.preventDefault();
+    return;
+  }
+  if (pressKey(e.key, e.code)) {
+    lastKeyPress.set(id, now);
+    e.preventDefault();
+  }
+});
 // test harness: ?keys=5:v,8:b fires key presses at sim times
 const KEYSCRIPT = (PARAMS.get('keys') || '').split(',').filter(Boolean)
   .map(s => { const c = s.split(':'); return { t: +c[0], key: c[1] }; })
