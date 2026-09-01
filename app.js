@@ -176,12 +176,11 @@ const NODES = {
          trunk: { seg: 'L2', end: 'to' }, branches: [{ seg: 'DS1', end: 'from' }, { seg: 'DS2', end: 'from' }] },
   NDB: { pos: V(425, 0, -355), dir: V(0, 0, 1), key: 'L', sel: 0,
          trunk: { seg: 'L3', end: 'from' }, branches: [{ seg: 'DS1', end: 'to' }, { seg: 'DS2', end: 'to' }] },
-  // jungle world: a double balloon — go down one leafy bulb and come back up
-  // the other. NJB has a single branch, so it's a plain through-connection
-  // (its branch's points-gap is covered by the trunk's track)
+  // jungle world: choose either leafy route to the volcano terminus, then
+  // reverse at the buffers to head home along the same route
   NJA: { pos: V(425, 0, -30), dir: V(0, 0, 1), key: 'N', sel: 0,
          trunk: { seg: 'L3', end: 'to' }, branches: [{ seg: 'JN1', end: 'from' }, { seg: 'JN2', end: 'from' }] },
-  NJB: { pos: V(425, 0, 110), dir: V(0, 0, 1), sel: 0,
+  NJB: { pos: V(425, 0, 110), dir: V(0, 0, 1), sel: 0, terminal: true,
          trunk: { seg: 'JN1', end: 'to' }, branches: [{ seg: 'JN2', end: 'to' }] },
 };
 const SEG_DEFS = {
@@ -264,6 +263,9 @@ let gapS0 = 0, gapS1 = 0;
 }
 // ---- gaps where the movable switch points live (every branch leg)
 for (const nid in NODES) {
+  // A terminal has no movable points: every approach remains fully railed all
+  // the way to its buffers.
+  if (NODES[nid].terminal) continue;
   for (const leg of NODES[nid].branches) {
     const seg = SEGS[leg.seg];
     seg.gaps.push(leg.end === 'from' ? [0, PTS_LEN] : [seg.len - PTS_LEN, seg.len]);
@@ -369,6 +371,33 @@ function railsFromPts(pts, group) {
   sleeperXforms.forEach((m, i) => inst.setMatrixAt(i, m));
   inst.receiveShadow = true;
   scene.add(inst);
+})();
+
+// A bright buffer stop and V marker make the volcano terminus unambiguous.
+(function buildTerminals() {
+  for (const nid in NODES) {
+    const node = NODES[nid];
+    if (!node.terminal) continue;
+    const g = new THREE.Group();
+    g.position.copy(node.pos);
+    g.lookAt(node.pos.clone().add(node.dir));
+    for (const x of [-0.62, 0.62]) {
+      const foot = box(0.22, 0.2, 1.5, 0x4a4f55);
+      foot.position.set(x, 0.18, -0.45);
+      g.add(foot);
+      const post = box(0.2, 1.2, 0.2, 0x4a4f55);
+      post.position.set(x, 0.65, 0);
+      g.add(post);
+    }
+    const beam = box(1.75, 0.3, 0.28, 0xf2c14e);
+    beam.position.set(0, 0.92, -0.08);
+    g.add(beam);
+    const key = new THREE.Sprite(new THREE.SpriteMaterial({ map: keyTexture('V'), transparent: true }));
+    key.scale.set(1.9, 1.9, 1);
+    key.position.set(0, 2.55, 0);
+    g.add(key);
+    scene.add(g);
+  }
 })();
 
 // ============================================================ tappable registry
@@ -2775,6 +2804,16 @@ function wrongWaySwitchU(cur) {
   return cur.seg.len - PTS_LEN - 4;
 }
 
+// Return the motion-lead center's stopping point at a terminal, or -1 when
+// the current segment continues through a normal junction.
+function terminalStopU(train, cur) {
+  const node = cur.dir > 0 ? NODES[cur.seg.to] : NODES[cur.seg.from];
+  if (!node.terminal) return -1;
+  const leadIdx = train.offsets.indexOf(Math.min(...train.offsets));
+  const lead = train.vehicles[leadIdx];
+  return cur.seg.len - lead.len / 2 - 0.7;
+}
+
 // node hand-off (trunk side consults the switch; branch side trails through)
 function advanceChain(train) {
   let last = train.hist[train.hist.length - 1];
@@ -2828,6 +2867,19 @@ function updateTrain(train, dt) {
   }
   const swU = wrongWaySwitchU(cur);
   const waitAtSwitch = swU >= 0 && train.u <= swU;
+  const endU = terminalStopU(train, cur);
+  const waitAtTerminal = endU >= 0;
+  if (waitAtTerminal) {
+    const terminalBrakeD = train.v * train.v / (2 * DECEL) + 0.5;
+    if (train.u > endU - terminalBrakeD) want = 0;
+    if (!train.endToot && train.u > endU - 6) {
+      train.endToot = true;
+      audio.horn(train.def.horn, 0.5);
+      showBanner('END OF LINE — PRESS V', '#fff');
+    }
+  } else {
+    train.endToot = false;
+  }
   if (waitAtSwitch) {
     if (train.u > swU - brakeD) want = 0;
     if (!train.waitToot && train.u > swU - 6) {
@@ -2843,6 +2895,7 @@ function updateTrain(train, dt) {
   const ds = train.v * dt;
   train.u += ds;
   if (waitAtSwitch) train.u = Math.min(train.u, swU);
+  if (waitAtTerminal) train.u = Math.min(train.u, endU);
   advanceChain(train);
 
   placeVehicles(train);

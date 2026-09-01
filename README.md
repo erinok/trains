@@ -29,9 +29,9 @@ In the mountains, switch **U** opens the line to the wider world: north to the
 **snow world** ⛄ (snowman, igloo, icy peaks — switches **I**/**K**), east
 across the long straight to the **desert** 🏜️ (pyramid, cacti, red-rock arch —
 **J**/**L**), and south to the **jungle** 🌋 (smoking volcano, monkeys,
-switch **N**), where a double balloon loop turns the train around and sends it
-home. A train coming up the wrong way at any switch stops, toots, and waits
-for you to flip it. Flip a switch while a train is halfway across and the cars
+switch **N**). Both jungle routes end at the volcano buffers; press **V** to
+reverse and head home. A train coming up the wrong way at any switch stops,
+toots, and waits for you to flip it. Flip a switch while a train is halfway across and the cars
 that haven't made it yet derail!
 
 Pass close by the ducks, monkeys, cows, or pigs and they leap aboard — one
