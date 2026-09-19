@@ -1,10 +1,9 @@
 # 🚂 Choo Choo World
 
-A three.js train set for a small engineer. **Four themed worlds** — the
-countryside, a snow world, a desert, and a jungle — joined into one big rail
-network, with a bidirectional track graph, twelve animated switches, trains at
-their real top speeds running either direction (head-on crashes!), and a
-double-leaf drawbridge with a famous jump.
+A three.js train set for a small engineer. **Four themed worlds and a secret
+Star Garden inside the volcano**, with ducks in scarves, a monkey cable car,
+a friendly dragon, twelve animated switches, trains running either direction
+(head-on crashes!), and a double-leaf drawbridge with a famous jump.
 
 ## How to run
 
@@ -16,6 +15,40 @@ python3 -m http.server 8000   # then open http://localhost:8000
 
 Touchscreen friendly — an iPad is ideal. Press **H** (or ❓) for the key card.
 The game opens on the **world map** with no trains — tap a train to begin.
+
+## Little adventures
+
+Tap a **picture button at the top** to visit a world, then choose a train.
+If you've already chosen a train, it comes along, including its animal
+passengers. Tap **Back to my train** to ride with it. The picture buttons
+under each place's name zoom in on things to play with; the objects themselves
+are tappable too. There are no scores, deadlines, or wrong answers.
+
+- **⛄ Snowy peaks:** a duck family in bobble hats and scarves, a penguin on a
+  red sled, a wobbling snowman who makes it snow harder, a cocoa cabin and
+  little mountain village, snowy pines, and an ice arch the train goes under.
+- **🏜️ Sunny sands:** sunhat ducks swimming in a palm-tree oasis, a friendly
+  nodding camel, a sandcastle that builds itself again, a market hut, dunes,
+  and a red-rock arch over the railway.
+- **🌋 Monkey jungle:** monkeys ride an open-sided cable car up the mountain,
+  water tumbles into a lagoon, and a banana stop waits beside the tracks.
+  Tap the cable-car picture to ride along with it and ring its bell.
+- **✨ Star Garden:** follow either jungle route to the volcano and tap the big
+  **🔀 switch beside the buffers**, or press **🔀 switch ahead** (Space).
+  The gate lifts and your train rolls into the tunnel. The screen goes fully
+  black, then you come out of a tunnel inside the volcano. The **Open tunnel**
+  picture button works too; a whistle still opens the gate as a bonus.
+  Inside is a whole
+  railway loop through glowing mushrooms, crystals, a rainbow arch, wizard
+  ducks, monkeys, and a little dragon with a colorful sneeze. Tap a world
+  button to return. Finding the garden is remembered on this browser when
+  local storage is available; nothing is required to save or sign in.
+
+The touch controls now include **🔄 reverse** and **🔀 switch ahead**. World
+travel preserves a paused train's speed setting and waits for a bridge jump
+or falling tender to land. A tender parked on the harbor barge can stay behind
+while its engine travels onward. Choose a world with no selected train to explore
+the scenery first.
 
 ## The worlds
 
@@ -29,8 +62,10 @@ In the mountains, switch **U** opens the line to the wider world: north to the
 **snow world** ⛄ (snowman, igloo, icy peaks — switches **I**/**K**), east
 across the long straight to the **desert** 🏜️ (pyramid, cacti, red-rock arch —
 **J**/**L**), and south to the **jungle** 🌋 (smoking volcano, monkeys,
-switch **N**). Both jungle routes end at the volcano buffers; press **V** to
-reverse and head home. A train coming up the wrong way at any switch stops,
+switch **N**). Both jungle routes turn inward to the volcano tunnel; press
+**🔀** to open it and ride inside, or **V** / **🔄** to reverse and head home.
+A train coming
+up the wrong way at any switch stops,
 toots, and waits for you to flip it. Flip a switch while a train is halfway across and the cars
 that haven't made it yet derail!
 
@@ -85,3 +120,22 @@ Q W E R T Y U I K J L N) · `&view=x,z[,dist,height]` fixed camera · `&snap=1` 
 `&help=1` show keys · `&keys=5:v,8:b` scripted key presses at sim-seconds ·
 `&dbg=1` per-second train/rider log to console · `&hide=tints,patches,water,shadows`
 scene-layer bisection.
+
+`&world=home|snow|sand|jungle|magic` starts at a particular world (the `magic`
+debug value also unlocks it). New station indices for `spawn` are **4 snow,
+5 sand, 6 jungle, 7 Star Garden**; the original 0–3 indices are unchanged.
+
+## Regression checks
+
+Open **[localhost:8000/?test=1](http://localhost:8000/?test=1)** with the local
+server running. The browser runs 32 checks against the real game geometry and
+runtime: all six trains spawning in both directions, repeated reversals and
+world trips, car spacing, occupied stations, paused trains, animal passengers,
+the secret loop, the tunnel switch on both approaches, the full-black transition,
+parked tenders, and reversing at the closed volcano buffers. This test view
+clears its own trains and reports every result; reload without `test` to play.
+Add `&fresh=1` to the test URL to leave the secret undiscovered afterward.
+
+`app.js` contains the original train/track simulation. `adventures.js` adds the
+new world scenery, interactions, travel, and responsive destination controls.
+Everything remains plain JavaScript with the existing three.js CDN dependency.
