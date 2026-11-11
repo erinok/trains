@@ -101,10 +101,12 @@
   #reverseBtn { background:#ffe9a9; }
   #pointsBtn { background:#d6f2d9; }
   #portalWash { position:fixed; inset:0; pointer-events:none; z-index:8; opacity:0;
-    background:radial-gradient(ellipse, #fff6cf 0%, #a987dfbb 65%, #65529f00); }
-  #portalWash.travel { animation:magicTravel 1s ease-out; }
+    background:radial-gradient(ellipse, #fff6cf 0%, #e4c498bb 65%, #cc8d4400); }
+  #portalWash.travel { animation:worldTravel 1s ease-out; }
+  body.inTunnel #worldDock, body.inTunnel #discovery, body.inTunnel #bar,
+  body.inTunnel #helpBtn, body.inTunnel #mute { opacity:0; pointer-events:none; }
   #portalWash.tunnel { background:#000; z-index:20; pointer-events:auto; }
-  @keyframes magicTravel { 0% { opacity:0; } 24% { opacity:.92; } 100% { opacity:0; } }
+  @keyframes worldTravel { 0% { opacity:0; } 24% { opacity:.92; } 100% { opacity:0; } }
   #banner { max-width:85vw; width:max-content; top:27%; }
   #bannerName { font-size:clamp(24px,4vw,44px); letter-spacing:0; }
   @media (max-width:850px) {
@@ -166,12 +168,14 @@
 <div id="help">
   <div id="helpCard">
     <div class="row">🦆 ⛄ 🏜️ 🌋 tap a world to take your train there</div>
-    <div class="row">🌋 + 🔀 open the end-of-line switch to ride inside!</div>
-    <div class="row">🔀 switch ahead · 🔄 reverse · tap scenery to play</div>
+    <div class="row">🌋 N: back to town · U: into the volcano</div>
+    <div class="row">🔥 Q + W: lava bridge · E: tunnel out to the desert</div>
     <div class="row"><span class="k">1</span>–<span class="k">6</span> 🚂 trains</div>
     <div class="row"><span class="k">7</span>–<span class="k">0</span> 🚉 stations</div>
     <div class="row"><span class="k">Q</span>–<span class="k">Y</span> 🔀 switches</div>
     <div class="row"><span class="k">U</span><span class="k">I</span><span class="k">K</span><span class="k">J</span><span class="k">L</span><span class="k">N</span> 🔀 far-world switches</div>
+    <div class="row">Same letter? The switch nearest your train moves.</div>
+    <div class="row">🔀 switch ahead · 🔄 reverse · tap scenery to play</div>
     <div class="row"><span class="k">B</span> 🌉 bridge</div>
     <div class="row"><span class="k">D</span> ↔️ spawn direction</div>
     <div class="row"><span class="k">V</span> 🔄 reverse train</div>
@@ -215,12 +219,12 @@
   });
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="adventures.js?v=volcano-tunnel-8"></script>
-<script src="app.js?v=volcano-tunnel-8"></script>
+<script src="adventures.js?v=volcano-world-9"></script>
+<script src="app.js?v=volcano-world-9"></script>
 <script>
   if (new URLSearchParams(location.search).has('test')) {
     var tests = document.createElement('script');
-    tests.src = 'tests/adventures.test.js?v=8';
+    tests.src = 'tests/adventures.test.js?v=9';
     document.body.appendChild(tests);
   }
 </script>

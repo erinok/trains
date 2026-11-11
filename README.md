@@ -1,8 +1,8 @@
 # 🚂 Choo Choo World
 
 A three.js train set for a small engineer. **Four themed worlds and a secret
-Star Garden inside the volcano**, with ducks in scarves, a monkey cable car,
-a friendly dragon, twelve animated switches, trains running either direction
+lava cavern inside the volcano**, with ducks in scarves, a monkey cable car,
+a friendly dragon, sixteen animated switches, trains running either direction
 (head-on crashes!), and a double-leaf drawbridge with a famous jump.
 
 ## How to run
@@ -33,16 +33,19 @@ are tappable too. There are no scores, deadlines, or wrong answers.
 - **🌋 Monkey jungle:** monkeys ride an open-sided cable car up the mountain,
   water tumbles into a lagoon, and a banana stop waits beside the tracks.
   Tap the cable-car picture to ride along with it and ring its bell.
-- **✨ Star Garden:** follow either jungle route to the volcano and tap the big
-  **🔀 switch beside the buffers**, or press **🔀 switch ahead** (Space).
-  The gate lifts and your train rolls into the tunnel. The screen goes fully
-  black, then you come out of a tunnel inside the volcano. The **Open tunnel**
-  picture button works too; a whistle still opens the gate as a bonus.
-  Inside is a whole
-  railway loop through glowing mushrooms, crystals, a rainbow arch, wizard
-  ducks, monkeys, and a little dragon with a colorful sneeze. Tap a world
-  button to return. Finding the garden is remembered on this browser when
-  local storage is available; nothing is required to save or sign in.
+- **🔥 Volcano depths:** the jungle railway circles the volcano by default.
+  Flip **U** beside the mountain (or **🔀 switch ahead** when approaching it)
+  to take the tunnel spur. The camera rides into a stone-lined bore, darkness
+  surrounds you, and you emerge inside a lava cavern. Discover **Gold Mine**,
+  **Dragon’s Roost**, and **Magma Works**, with miner ducks, treasure, ore carts,
+  dragon eggs, a fire-sneezing dragon, and a working forge. Tap their pictures
+  or the objects to play. Set both **Q** and **W** to take the raised lava bridge
+  instead of the northern mine route; set them back for the full station loop.
+  The railway stays inside by default. Flip **E** on the clockwise loop to take
+  the exit line through the same tunnel. Your train emerges facing outward,
+  with the outside junctions aligned for the **desert**, and keeps going.
+  Discovery is remembered in this browser, but never opens the entrance switch
+  automatically. The tunnel picture also works while exploring without a train.
 
 The touch controls now include **🔄 reverse** and **🔀 switch ahead**. World
 travel preserves a paused train's speed setting and waits for a bridge jump
@@ -62,8 +65,11 @@ In the mountains, switch **U** opens the line to the wider world: north to the
 **snow world** ⛄ (snowman, igloo, icy peaks — switches **I**/**K**), east
 across the long straight to the **desert** 🏜️ (pyramid, cacti, red-rock arch —
 **J**/**L**), and south to the **jungle** 🌋 (smoking volcano, monkeys,
-switch **N**). Both jungle routes turn inward to the volcano tunnel; press
-**🔀** to open it and ride inside, or **V** / **🔄** to reverse and head home.
+switch **N**). Arriving trains join a continuous circuit around the volcano.
+On the normal clockwise route, **N** sends you back toward town via the desert,
+and **U** sends you into the volcano. Leave both in their default positions
+to keep circling. Letters are reused: a key operates only the matching switch
+nearest your train (or the camera’s focus when no train is selected).
 A train coming
 up the wrong way at any switch stops,
 toots, and waits for you to flip it. Flip a switch while a train is halfway across and the cars
@@ -115,26 +121,28 @@ the bridge, ducks, monkeys, cows, pigs.
 
 `?empty=1` no default train (now the default) · `&warp=20` fast-forward ·
 `&spawn=mallard@2,catchme@0r:80` spawn at stations (`r` = reverse, `:80` = mph) ·
-`&follow=mallard&angle=1` · `&tour=1` · `&bridge=up` · `&sw=1,0,0,0,0,0,1` (12 switches:
-Q W E R T Y U I K J L N) · `&view=x,z[,dist,height]` fixed camera · `&snap=1` no easing ·
+`&follow=mallard&angle=1` · `&tour=1` · `&bridge=up` · `&sw=1,0,0,0,0,0,1` (16 switches:
+Q W E R T Y U I K J L N U Q W E) · `&view=x,z[,dist,height]` fixed camera · `&snap=1` no easing ·
 `&help=1` show keys · `&keys=5:v,8:b` scripted key presses at sim-seconds ·
 `&dbg=1` per-second train/rider log to console · `&hide=tints,patches,water,shadows`
 scene-layer bisection.
 
-`&world=home|snow|sand|jungle|magic` starts at a particular world (the `magic`
-debug value also unlocks it). New station indices for `spawn` are **4 snow,
-5 sand, 6 jungle, 7 Star Garden**; the original 0–3 indices are unchanged.
+`&world=home|snow|sand|jungle|volcano` starts at a particular world (`volcano`
+also unlocks it; old `magic` bookmarks still work). Station indices for `spawn`
+are **4 snow, 5 sand, 6 jungle, 7 Gold Mine, 8 Dragon’s Roost, 9 Magma Works**;
+the original 0–3 indices are unchanged.
 
 ## Regression checks
 
 Open **[localhost:8000/?test=1](http://localhost:8000/?test=1)** with the local
-server running. The browser runs 32 checks against the real game geometry and
-runtime: all six trains spawning in both directions, repeated reversals and
-world trips, car spacing, occupied stations, paused trains, animal passengers,
-the secret loop, the tunnel switch on both approaches, the full-black transition,
-parked tenders, and reversing at the closed volcano buffers. This test view
+server running. The browser runs 40 checks against real game geometry and
+runtime: all six trains at every adventure station in both directions,
+reversals and world trips, car spacing, paused trains, passengers, continuous
+outer and inner circuits, nearest-letter switch selection, the lava bridge,
+the complete volcano-to-desert journey, both transitions under full black,
+occupied tunnels and retries, queued trains, and parked tenders. The test view
 clears its own trains and reports every result; reload without `test` to play.
-Add `&fresh=1` to the test URL to leave the secret undiscovered afterward.
+Add `&fresh=1` to leave the secret undiscovered afterward.
 
 `app.js` contains the original train/track simulation. `adventures.js` adds the
 new world scenery, interactions, travel, and responsive destination controls.

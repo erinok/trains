@@ -18,6 +18,7 @@
     riders.length = 0;
     for (const t of [...trains]) despawnTrain(t, false);
     cam.target = null; adventure.lastTrain = null;
+    for (const node of Object.values(NODES)) if (!node.terminal) setAdventureSwitch(node, 0);
   };
   const spaced = t => {
     const cur = t.hist[t.hist.length - 1];
@@ -35,27 +36,37 @@
   };
   const run = (t, seconds) => { for (let i = 0; i < seconds * 30; i++) updateTrain(t, 1 / 30); };
   const rideTunnel = () => {
-    for (let i = 0; i < 240 && adventure.passage; i++) updateAdventures(1 / 30, i / 30);
+    for (let i = 0; i < 300 && adventure.passage; i++) updateAdventures(1 / 30, i / 30);
     assert(!adventure.passage && !$('portalWash').classList.contains('tunnel'), 'tunnel controls stayed blocked');
   };
-  let previousUnlock;
-  try { previousUnlock = localStorage.getItem('choochoo-star-garden'); } catch (_) {}
-  // Optional QA teardown: leave the newly added secret undiscovered for play.
-  if (PARAMS.has('fresh')) previousUnlock = null;
+  const unlockKeys = ['choochoo-volcano', 'choochoo-star-garden'];
+  const previousUnlock = {};
+  for (const key of unlockKeys) try { previousUnlock[key] = PARAMS.has('fresh') ? null : localStorage.getItem(key); } catch (_) {}
 
   clean();
-  test('Original twelve switches and both reversing volcano approaches remain', () => {
-    assert(switches.length === 12, 'switch count changed');
-    assert(NODES.NJB.terminal, 'volcano buffers removed');
-    for (const id of ['JN1', 'JN2']) assert(!SEGS[id].gaps.some(g => g[1] === SEGS[id].len), 'gap at buffers');
+  const placeOn = (t, seg, dir = 1, u = 45) => {
+    t.hist = [{ seg, dir }]; t.u = u; t.passageBlocked = false; placeVehicles(t);
+  };
+  const drive = (t, seconds) => {
+    for (let i = 0; i < seconds * 30; i++) {
+      updateTrain(t, 1 / 30);
+      if (adventure.passage || volcanoPassageDirection(t)) updateAdventures(1 / 30, i / 30);
+    }
+  };
+  test('Outer volcano is a circuit with separate town and tunnel turnouts', () => {
+    assert(!NODES.NJB.terminal, 'old volcano buffers remain');
+    assert(NODES.NJA.branches[1].seg === 'JOUT' && NODES.NJB.branches[1].seg === 'VT', 'missing separate exits');
+    assert(switches.length === 16, 'expected 16 real switches');
   });
-  test('Secret loop has continuous rails through both unswitched junctions', () => {
-    for (const id of ['MG1', 'MG2']) assert(SEGS[id].gaps.length === 0, id + ' has missing rail');
-    assert(NODES.MGA.trunk.seg === 'MG2' && NODES.MGB.trunk.seg === 'MG1', 'loop is disconnected');
+  test('Volcano has three distinct named stations and a raised alternative route', () => {
+    const stations = STATIONS.filter(s => s.world === 'volcano');
+    assert(stations.length === 3 && new Set(stations.map(s => s.seg)).size === 3, 'missing stations');
+    assert(stations.every(s => s.name), 'unnamed station');
+    assert(SEGS.MGBRIDGE.samples.some(p => p.y > 4), 'missing lava crossing');
   });
   test('Secret destination is inaccessible until discovered', () => {
     adventure.unlocked = false;
-    assert(!visitAdventureWorld('magic'), 'secret accessible while locked');
+    assert(!visitAdventureWorld('volcano'), 'secret accessible while locked');
     assert(!visitAdventureWorld('missing'), 'invalid world accepted');
   });
   test('Every attraction is connected to a real object and action', () => {
@@ -65,15 +76,15 @@
     }
   });
   for (let def = 0; def < TRAIN_DEFS.length; def++) {
-    test(TRAIN_DEFS[def].name + ': spawns both ways at all four new stations', () => {
-      for (const st of [4, 5, 6, 7]) for (const dir of [1, -1]) {
+    test(TRAIN_DEFS[def].name + ': spawns both ways at all six adventure stations', () => {
+      for (const st of [4, 5, 6, 7, 8, 9]) for (const dir of [1, -1]) {
         clean(); const t = spawnTrain(def, st, 35, dir); assert(t, 'failed to spawn'); spaced(t);
         for (let n = 0; n < 4; n++) { doReverse(t); placeVehicles(t); spaced(t); }
       }
     });
     test(TRAIN_DEFS[def].name + ': repeated world trips preserve car spacing after reversals', () => {
       clean(); const t = spawnTrain(def, 0, 73); selectTrain(t);
-      for (const st of [4, 5, 6, 7, 0, 7, 4]) {
+      for (const st of [4, 5, 6, 7, 8, 9, 0, 7, 4]) {
         doReverse(t); doReverse(t); doReverse(t);
         t.revPending = true; t.revHold = 1;
         assert(moveAdventureTrain(t, STATIONS[st]), 'trip rejected'); spaced(t);
@@ -108,99 +119,148 @@
     assert(adventure.ducks.length === 9, 'missing a duck family');
     for (const d of adventure.ducks) assert(hoppers.some(h => h.obj === d), 'duck cannot board');
   });
-  test('Secret loop runs in both directions, across joins, without collapsing cars', () => {
-    clean(); const t = spawnTrain(5, 7, 180);
-    for (let i = 0; i < 4; i++) {
-      run(t, 22); spaced(t); doReverse(t); placeVehicles(t); spaced(t);
-      assert(t.hist.every(h => ['MG1', 'MG2'].includes(h.seg.id)), 'train left the loop');
-    }
-  });
-  test('Locked volcano buffers stop both routes and still allow reversal', () => {
-    for (const seg of [SEGS.JN1, SEGS.JN2]) {
-      clean(); adventure.unlocked = false;
-      const t = spawnTrain(2, 6, 100);
-      t.hist = [{ seg, dir: 1 }]; t.u = Math.max(...t.offsets) + 5; placeVehicles(t);
-      run(t, 60); spaced(t);
-      assert(t.v === 0 && t.u <= terminalStopU(t, t.hist[0]), 'train passed buffers');
-      doReverse(t); run(t, 1); assert(t.v > 0, 'train cannot leave buffers'); spaced(t);
-    }
-  });
-  test('A jungle whistle reveals the secret and the picture button', () => {
-    clean(); adventure.unlocked = false;
-    const t = spawnTrain(2, 6, 0); selectTrain(t); adventure.current = 'jungle';
-    adventureWhistle();
-    assert(adventure.unlocked && !adventure.worldButtons.magic.hidden, 'whistle failed to reveal garden');
-    assert(adventure.things.door.label === 'Go inside!', 'door does not offer entry');
-  });
-  test('The switch opens a stopped train’s tunnel ride, moving worlds only under black', () => {
-    clean(); const t = spawnTrain(2, 6, 30); selectTrain(t);
-    t.u = terminalStopU(t, t.hist[0]); t.v = 0; placeVehicles(t);
-    adventure.unlocked = false;
-    assert(toggleUpcoming(t), 'switch ahead does not open the tunnel');
-    assert(adventure.unlocked && adventure.passage, 'switch did not start the ride');
-    assert(!beginVolcanoPassage(t) && !visitAdventureWorld('home'), 'a second trip interrupted the ride');
-    let sawBlack = false, crossed = false;
-    for (let i = 0; i < 240 && adventure.passage; i++) {
-      const before = adventure.passage.arrived;
-      updateAdventures(1 / 30, i / 30);
-      if ($('portalWash').style.opacity === '1') sawBlack = true;
-      if (adventure.passage && adventure.passage.arrived && !before) {
-        assert(sawBlack && $('portalWash').style.opacity === '1', 'world changed before full black'); crossed = true;
+  test('Default outer loop runs indefinitely in both directions', () => {
+    for (const dir of [1, -1]) {
+      clean(); const t = spawnTrain(5, 6, 180, dir);
+      for (let i = 0; i < 5; i++) {
+        run(t, 30); spaced(t);
+        assert(t.v > 0 && ['JN1', 'JN2', 'JTOP'].includes(t.hist.at(-1).seg.id), 'left or stopped on circuit');
       }
-      spaced(t);
-    }
-    assert(crossed && !adventure.passage, 'ride never completed');
-    assert(t.hist[0].seg === SEGS.MG1 && adventure.current === 'magic', 'passage failed');
-    assert(t.targetMph === 30 && cam.mode === 'follow', 'ride did not restore the train controls');
-    assert(visitAdventureWorld('home'), 'cannot return home');
-    assert(t.hist[0].seg === SEGS.A, 'train did not return home');
-  });
-  test('All six trains enter from both routes, including paused and reversed consists', () => {
-    for (let def = 0; def < TRAIN_DEFS.length; def++) for (const seg of [SEGS.JN1, SEGS.JN2]) {
-      clean(); const t = spawnTrain(def, 6, 0); selectTrain(t);
-      doReverse(t);
-      t.hist = [{ seg, dir: 1 }]; t.u = terminalStopU(t, t.hist[0]); placeVehicles(t);
-      adventure.unlocked = false; toggleUpcoming(t); rideTunnel(); spaced(t);
-      assert(adventure.current === 'magic' && t.targetMph === 0 && t.v === 0, 'paused train failed its trip');
     }
   });
-  test('An already-open entrance picks up a train stopped just short of the buffers', () => {
-    clean(); const t = spawnTrain(2, 6, 35); selectTrain(t);
-    t.u = terminalStopU(t, t.hist[0]) - 0.6; t.v = 0; placeVehicles(t);
-    adventure.unlocked = true; updateAdventures(1 / 30, 0);
-    assert(adventure.passage, 'train was stranded short of the entrance'); rideTunnel(); spaced(t);
+  test('A normal arrival from the desert joins the default circuit', () => {
+    clean(); const t = spawnTrain(2, 6, 100); placeOn(t, SEGS.L3, 1, SEGS.L3.len - 50);
+    run(t, 100); spaced(t);
+    assert(['JN1', 'JN2', 'JTOP'].includes(t.hist.at(-1).seg.id) && t.v > 0, 'arrival did not keep circling');
   });
-  test('A parked harbor tender does not block the engine’s volcano trip', () => {
+  test('N alone sends the circling train back toward town and the desert', () => {
+    clean(); const t = spawnTrain(2, 6, 100); setAdventureSwitch(NODES.NJA, 1);
+    let reached = false;
+    for (let i = 0; i < 1800; i++) { updateTrain(t, 1 / 30); if (t.hist.at(-1).seg === SEGS.L3) { reached = true; break; } }
+    assert(reached && t.hist.at(-1).dir === -1, 'town switch did not send train north'); spaced(t);
+  });
+  test('Duplicate letters operate only the switch nearest the train, including reverse', () => {
+    clean(); const t = spawnTrain(2, 7, 0); selectTrain(t);
+    pressKey('q'); assert(NODES.MGW.sel === 1 && NODES.N1.sel === 0, 'Q changed distant switch');
+    moveAdventureTrain(t, STATIONS[6]); doReverse(t); pressKey('u');
+    assert(NODES.NJB.sel === 1 && NODES.NCN.sel === 0, 'U changed distant switch');
+    clean(); camLook.copy(NODES.MGB.pos); pressKey('w');
+    assert(NODES.MGB.sel === 1 && NODES.N2.sel === 0, 'camera fallback picked wrong switch');
+  });
+  test('Discovery and whistles never open the default entrance', () => {
+    clean(); adventure.unlocked = false; unlockVolcano(false); adventure.current = 'jungle'; adventureWhistle();
+    assert(NODES.NJB.sel === 0 && !adventure.passage, 'discovery bypassed turnout');
+  });
+  test('Volcano default loop runs in both directions and across reversals', () => {
+    clean(); const t = spawnTrain(5, 7, 180);
+    for (let i = 0; i < 5; i++) {
+      run(t, 30); spaced(t); doReverse(t); placeVehicles(t); spaced(t);
+      assert(t.v > 0 && t.hist.every(h => ['MG0', 'MG1', 'MG2', 'MG3'].includes(h.seg.id)), 'left or stopped on inner loop');
+    }
+  });
+  test('Q and W choose the lava bridge in either direction', () => {
+    for (const dir of [1, -1]) {
+      clean(); const t = spawnTrain(2, 7, 120); setAdventureSwitch(NODES.MGW, 1); setAdventureSwitch(NODES.MGB, 1);
+      placeOn(t, dir === 1 ? SEGS.MG0 : SEGS.MG2, dir, 25);
+      let seen = false;
+      for (let i = 0; i < 1800; i++) { updateTrain(t, 1 / 30); if (t.hist.at(-1).seg === SEGS.MGBRIDGE) seen = true; }
+      assert(seen && t.v > 0, 'bridge route stalled'); spaced(t);
+    }
+  });
+  test('Switch ahead looks through passive joins to the next real turnout', () => {
+    clean(); const t = spawnTrain(2, 9, 0); selectTrain(t);
+    assert(toggleUpcoming(t) && NODES.MGW.sel === 1, 'could not find next real switch');
+  });
+  test('Opening U routes a moving train into the tunnel without a visible teleport', () => {
+    clean(); const t = spawnTrain(2, 6, 100); selectTrain(t);
+    const before = t.vehicles[0].g.position.clone(); useVolcanoDoor();
+    assert(t.vehicles[0].g.position.equals(before) && !adventure.passage, 'opening a switch teleported the train');
+    drive(t, 60); spaced(t);
+    assert(adventure.current === 'volcano' && t.hist.at(-1).seg.id.startsWith('MG'), 'train did not enter');
+  });
+  test('All six trains enter and exit, preserving paused speed and reversed consists', () => {
+    for (let def = 0; def < TRAIN_DEFS.length; def++) for (const reversed of [false, true]) {
+      clean(); const t = spawnTrain(def, 6, 0); selectTrain(t); if (reversed) doReverse(t);
+      placeOn(t, SEGS.VT, 1, adventure.outerMouth - 10);
+      assert(beginVolcanoPassage(t), 'entry rejected'); rideTunnel(); spaced(t);
+      assert(adventure.current === 'volcano' && t.targetMph === 0 && t.v === 0, 'paused entry failed');
+      placeOn(t, SEGS.MX, 1, SEGS.MX.len - 40); t.u += 50; advanceChain(t); placeVehicles(t);
+      assert(beginVolcanoPassage(t), 'exit rejected'); rideTunnel(); spaced(t);
+      assert(adventure.current === 'jungle' && t.hist.at(-1).dir === -1 && t.targetMph === 0, 'paused exit failed');
+    }
+  });
+  test('Both scene changes happen only after a frame of full black', () => {
+    for (const direction of ['in', 'out']) {
+      clean(); const t = spawnTrain(2, 6, 30); selectTrain(t);
+      placeOn(t, direction === 'in' ? SEGS.VT : SEGS.MP, direction === 'in' ? 1 : -1,
+        direction === 'in' ? adventure.outerMouth - 10 : 20);
+      assert(beginVolcanoPassage(t), 'passage rejected');
+      assert(!beginVolcanoPassage(t) && !visitAdventureWorld('home'), 'second trip interrupted passage');
+      let sawBlack = false, crossed = false;
+      for (let i = 0; i < 300 && adventure.passage; i++) {
+        const before = adventure.passage.arrived;
+        updateAdventures(1 / 30, i / 30);
+        if (adventure.passage && adventure.passage.arrived && !before) {
+          assert(sawBlack && $('portalWash').style.opacity === '1', 'visible scene relocation'); crossed = true;
+        }
+        if ($('portalWash').style.opacity === '1') sawBlack = true;
+      }
+      assert(crossed && !adventure.passage && t.targetMph === 30, 'passage did not finish');
+    }
+  });
+  test('E exits the inner circuit and continues all the way into the desert', () => {
+    clean(); const t = spawnTrain(2, 8, 100); selectTrain(t); setAdventureSwitch(NODES.MGC, 1);
+    let left = false, desert = false;
+    for (let i = 0; i < 6000; i++) {
+      drive(t, 1 / 30);
+      if (t.hist.at(-1).seg === SEGS.VT) left = true;
+      if (t.hist.at(-1).seg === SEGS.DS1) { desert = true; break; }
+    }
+    assert(left && desert && t.hist.at(-1).dir === -1, 'exit required another switch or reverse'); spaced(t);
+  });
+  test('Passengers and a parked harbor tender survive the tunnel', () => {
     clean(); const t = spawnTrain(2, 0, 45); selectTrain(t);
     const tender = t.vehicles.splice(1, 1)[0]; t.offsets.splice(1, 1);
-    barge.add(tender.g); t.tender = tender; t.tenderParked = true;
-    const pos = tender.g.position.clone();
-    assert(moveAdventureTrain(t, STATIONS[6]), 'parked tender blocked world travel');
-    t.u = terminalStopU(t, t.hist[0]); placeVehicles(t);
-    useVolcanoDoor(); rideTunnel(); spaced(t);
-    assert(adventure.current === 'magic', 'engine did not enter');
-    assert(t.tender === tender && tender.g.parent === barge && tender.g.position.equals(pos), 'parked tender moved');
-  });
-  test('Passengers stay with their cars through the tunnel', () => {
-    clean(); const t = spawnTrain(3, 6, 0); selectTrain(t);
+    barge.add(tender.g); t.tender = tender; t.tenderParked = true; const pos = tender.g.position.clone();
+    moveAdventureTrain(t, STATIONS[6]);
     const duck = hoppers.find(h => h.kind === 'duck'); mountRider(duck, t, freeSeat(t));
-    adventure.unlocked = true; beginVolcanoPassage(t); rideTunnel();
-    assert(riders.length === 1 && riders[0].mode === 'ride' && duck.obj.parent === riders[0].car.g, 'passenger lost');
+    placeOn(t, SEGS.VT, 1, adventure.outerMouth - 10); beginVolcanoPassage(t); rideTunnel(); spaced(t);
+    assert(adventure.current === 'volcano' && duck.obj.parent === riders[0].car.g, 'passenger lost');
+    assert(tender.g.parent === barge && tender.g.position.equals(pos), 'parked tender moved');
   });
-  test('The tunnel arrival leaves room to roll out past a parked train', () => {
-    clean(); const parked = spawnTrain(0, 7, 0);
-    parked.u = 60; placeVehicles(parked);
-    const t = spawnTrain(2, 6, 0); selectTrain(t);
-    adventure.unlocked = true; beginVolcanoPassage(t);
-    for (let i = 0; i < 240 && adventure.passage; i++) {
-      updateAdventures(1 / 30, i / 30); checkCollisions();
-      assert(parked.state === 'run' && t.state === 'run', 'tunnel ride collided with the parked train');
-    }
-    assert(adventure.current === 'magic' && !adventure.passage, 'occupied exit blocked the ride'); spaced(t);
+  test('An occupied bore waits safely instead of placing the train outside the tunnel', () => {
+    clean(); const parked = spawnTrain(0, 7, 0); placeOn(parked, SEGS.MP, 1, 70);
+    const t = spawnTrain(2, 6, 35); selectTrain(t); placeOn(t, SEGS.VT, 1, adventure.outerMouth - 10);
+    beginVolcanoPassage(t); rideTunnel();
+    assert(t.passageBlocked && t.hist.at(-1).seg === SEGS.VT, 'train relocated around obstruction');
+    checkCollisions(); assert(parked.state === 'run' && t.state === 'run', 'arrival collision');
+    despawnTrain(parked, false); assert(toggleUpcoming(t), 'retry rejected'); rideTunnel();
+    assert(adventure.current === 'volcano' && !t.passageBlocked, 'retry failed'); spaced(t);
   });
-  test('The tunnel also works while exploring without a train', () => {
-    clean(); adventure.unlocked = false; useVolcanoDoor(); rideTunnel();
-    assert(adventure.current === 'magic' && trains.length === 0, 'scenery-only entrance failed');
+  test('An unfollowed train still enters through the tunnel', () => {
+    clean(); const t = spawnTrain(2, 6, 35); placeOn(t, SEGS.VT, 1, adventure.outerMouth - 10);
+    cam.target = null; adventure.lastTrain = null; updateAdventures(1 / 30, 0);
+    assert(adventure.passage && adventure.passage.train === t, 'only selected trains can enter'); rideTunnel();
+  });
+  test('A second train waits while the tunnel is occupied by a passage', () => {
+    clean(); const first = spawnTrain(0, 6, 55), second = spawnTrain(2, 8, 55);
+    placeOn(first, SEGS.VT, 1, adventure.outerMouth - 10); beginVolcanoPassage(first);
+    while (adventure.passage.t < 3.1) updateAdventures(1 / 30, 0);
+    placeOn(second, SEGS.VT, 1, adventure.outerMouth - 10); const before = second.u;
+    run(second, 10); assert(second.u === before && second.v === 0, 'second train reached a hidden endpoint');
+    for (let i = 0; i < 150 && adventure.passage.train === first; i++) updateAdventures(1 / 30, 0);
+    assert(adventure.passage && adventure.passage.train === second, 'waiting train did not get its turn');
+    run(first, 20); // The first train rolls away from the arrival berth.
+    rideTunnel(); assert(second.hist.at(-1).seg === SEGS.MP && !second.passageBlocked, 'second passage failed');
+  });
+  test('A blocked train can reverse away from the tunnel', () => {
+    clean(); const t = spawnTrain(2, 6, 35); placeOn(t, SEGS.VT, 1, adventure.outerMouth - 10);
+    t.passageBlocked = true; doReverse(t); run(t, 0.5);
+    assert(!t.passageBlocked && t.v > 0 && t.hist.at(-1).dir === -1, 'reverse remained blocked');
+  });
+  test('The tunnel works while exploring without a train', () => {
+    clean(); useVolcanoDoor(); rideTunnel();
+    assert(adventure.current === 'volcano' && trains.length === 0, 'scenery-only passage failed');
   });
   test('Crashes and falling tenders cannot be interrupted by teleporting a consist', () => {
     clean(); const t = spawnTrain(2, 0, 0), pos = t.vehicles[0].g.position.clone();
@@ -218,9 +278,9 @@
     }
   });
   clean();
-  if (previousUnlock !== undefined) try {
-    if (previousUnlock === null) localStorage.removeItem('choochoo-star-garden');
-    else localStorage.setItem('choochoo-star-garden', previousUnlock);
+  for (const key of unlockKeys) if (key in previousUnlock) try {
+    if (previousUnlock[key] === null) localStorage.removeItem(key);
+    else localStorage.setItem(key, previousUnlock[key]);
   } catch (_) {}
   const failed = results.filter(r => !r.pass);
   const pre = document.createElement('pre'); pre.id = 'testResults'; pre.dataset.failed = String(failed.length);

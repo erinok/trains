@@ -1,6 +1,6 @@
 /* CHOO CHOO WORLD — a three.js train set for a small engineer.
-   Four themed worlds and a secret Star Garden on one bidirectional
-   rail network with twelve animated switches, trains at real top speeds
+   Four themed worlds and a lava cavern on one bidirectional
+   rail network with animated switches, trains at real top speeds
    (spawnable in either direction — head-on crashes!), and a double-leaf
    drawbridge Choo Choo jumps. */
 'use strict';
@@ -180,12 +180,8 @@ const NODES = {
          trunk: { seg: 'L2', end: 'to' }, branches: [{ seg: 'DS1', end: 'from' }, { seg: 'DS2', end: 'from' }] },
   NDB: { pos: V(425, 0, -355), dir: V(0, 0, 1), key: 'L', sel: 0,
          trunk: { seg: 'L3', end: 'from' }, branches: [{ seg: 'DS1', end: 'to' }, { seg: 'DS2', end: 'to' }] },
-  // jungle world: choose either leafy route to the volcano terminus, then
-  // turn inward toward the volcano tunnel, or reverse to head home
-  NJA: { pos: V(425, 0, -30), dir: V(0, 0, 1), key: 'N', sel: 0,
-         trunk: { seg: 'L3', end: 'to' }, branches: [{ seg: 'JN1', end: 'from' }, { seg: 'JN2', end: 'from' }] },
-  NJB: { pos: V(425, 0, 69), dir: V(0, 0, -1), sel: 0, terminal: true,
-         trunk: { seg: 'JN1', end: 'to' }, branches: [{ seg: 'JN2', end: 'to' }] },
+  // The jungle circuit and volcano routes are installed by adventures.js.
+
 };
 const SEG_DEFS = {
   A:   { from: 'N1', to: 'N2', mids: [[-48, 0, -62.5], [-20, 0, -66], [10, 0, -66], [38, 0, -62]] },
@@ -208,22 +204,22 @@ const SEG_DEFS = {
   DS1: { from: 'NDA', to: 'NDB', mids: [[395, 0, -445], [425, 0, -462], [455, 0, -458], [477, 0, -441], [486, 0, -417], [480, 0, -394], [463, 0, -378], [447, 0, -370], [432, 0, -371]] },
   DS2: { from: 'NDA', to: 'NDB', mids: [[385, 0, -410], [398, 0, -392], [410, 0, -380], [419, 0, -373]] },
   L3:  { from: 'NDB', to: 'NJA', mids: [[428, 0, -300], [430, 0, -240], [430, 0, -160], [428, 0, -90]] },
-  JN1: { from: 'NJA', to: 'NJB', mids: [[440, 0, -8], [464, 0, 16], [478, 0, 42], [472, 0, 68], [452, 0, 88], [431, 0, 95]] },
-  JN2: { from: 'NJA', to: 'NJB', mids: [[410, 0, -8], [386, 0, 16], [372, 0, 42], [378, 0, 68], [398, 0, 88], [419, 0, 95]] },
 };
 installAdventureTrack(NODES, SEG_DEFS);
 const SEGS = {};
 for (const id in SEG_DEFS) {
   const d = SEG_DEFS[id];
   const a = NODES[d.from], b = NODES[d.to];
+  const startDir = d.startDir ? V(...d.startDir) : a.dir;
+  const endDir = d.endDir ? V(...d.endDir) : b.dir;
   // double lead points at each end pin the tangent so turnouts leave straight
   const pts = [
     a.pos.clone(),
-    a.pos.clone().addScaledVector(a.dir, 5),
-    a.pos.clone().addScaledVector(a.dir, 11),
+    a.pos.clone().addScaledVector(startDir, 5),
+    a.pos.clone().addScaledVector(startDir, 11),
     ...d.mids.map(m => V(m[0], m[1], m[2])),
-    b.pos.clone().addScaledVector(b.dir, -11),
-    b.pos.clone().addScaledVector(b.dir, -5),
+    b.pos.clone().addScaledVector(endDir, -11),
+    b.pos.clone().addScaledVector(endDir, -5),
     b.pos.clone(),
   ];
   const curve = new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.5);
@@ -249,6 +245,9 @@ function nearestOnSeg(seg, x, z) {
   }
   return { s: (best / (seg.samples.length - 1)) * seg.len, p: seg.samples[best].clone() };
 }
+// The exterior bore continues logically under the mountain; its hidden tail
+// must not emerge visibly from the far side of the volcano.
+SEGS.VT.renderEnd = nearestOnSeg(SEGS.VT, 425, 67).s + 32;
 const ALL_TRACK_PTS = [];
 for (const id in SEGS) for (let i = 0; i < SEGS[id].samples.length; i += 4) ALL_TRACK_PTS.push(SEGS[id].samples[i]);
 
@@ -270,7 +269,7 @@ let gapS0 = 0, gapS1 = 0;
 for (const nid in NODES) {
   // A terminal has no movable points: every approach remains fully railed all
   // the way to its buffers.
-  if (NODES[nid].terminal || NODES[nid].branches.length < 2) continue;
+  if (NODES[nid].terminal || NODES[nid].autoMerge || NODES[nid].branches.length < 2) continue;
   for (const leg of NODES[nid].branches) {
     const seg = SEGS[leg.seg];
     seg.gaps.push(leg.end === 'from' ? [0, PTS_LEN] : [seg.len - PTS_LEN, seg.len]);
@@ -334,7 +333,7 @@ function railsFromPts(pts, group) {
     const runs = [];
     let start = 0;
     for (const [g0, g1] of seg.gaps) { runs.push([start, g0]); start = g1; }
-    runs.push([start, seg.len]);
+    runs.push([start, seg.renderEnd || seg.len]);
 
     for (const [r0, r1] of runs) {
       const runLen = r1 - r0;
@@ -380,11 +379,11 @@ function railsFromPts(pts, group) {
   scene.add(inst);
 })();
 
-// The volcano's buffer lifts with its tunnel switch.
+// Physical buffers for any ordinary terminal (portal endpoints stay hidden).
 (function buildTerminals() {
   for (const nid in NODES) {
     const node = NODES[nid];
-    if (!node.terminal) continue;
+    if (!node.terminal || [NODES.VEND, NODES.MEND].includes(node)) continue;
     const g = new THREE.Group();
     g.position.copy(node.pos);
     g.lookAt(node.pos.clone().add(node.dir));
@@ -486,9 +485,8 @@ function buildSwitch(nodeId) {
   switches.push(sw);
   return sw;
 }
-// every two-branch node is a real switch; single-branch nodes (the jungle
-// balloon's far end) are plain through-connections and need no points
-for (const nid in NODES) if (NODES[nid].branches.length === 2) buildSwitch(nid);
+// Lettered turnouts have moving points; passive joins keep both incoming rails.
+for (const nid in NODES) if (NODES[nid].branches.length === 2 && !NODES[nid].autoMerge) buildSwitch(nid);
 function toggleSwitch(sw) {
   sw.node.sel ^= 1;
   sw.aim();
@@ -1207,7 +1205,9 @@ const STATIONS = [
   { emoji: '⛄', seg: SEGS.SN1, target: [-43, -420], color: 0x60aec9, world: 'snow' },
   { emoji: '🏜️', seg: SEGS.DS1, target: [450, -458], color: 0xe39359, world: 'sand' },
   { emoji: '🌋', seg: SEGS.JN2, target: [380, 65], color: 0x47aa78, world: 'jungle' },
-  { emoji: '✨', seg: SEGS.MG1, target: [1510, -14], color: 0xb796f4, world: 'magic' },
+  { emoji: '🪙', name: 'Gold Mine', seg: SEGS.MG1, target: [1490, -58], color: 0xd8a32f, world: 'volcano' },
+  { emoji: '🐉', name: 'Dragon’s Roost', seg: SEGS.MG2, target: [1560, 108], color: 0xc65338, world: 'volcano' },
+  { emoji: '⚒️', name: 'Magma Works', seg: SEGS.MG3, target: [1424, 88], color: 0xe67a35, world: 'volcano' },
 ];
 for (const st of STATIONS) {
   const at = nearestOnSeg(st.seg, st.target[0], st.target[1]);
@@ -1383,6 +1383,8 @@ let volcanoT = 1;
   [[0, -420, 100, 0xeef3f6, 9], [430, -415, 100, 0xe8cf9a, 10], [425, 40, 92, 0x3e8e4a, 11]]
     .forEach(([x, z, r, c, lvl], i) => {
       const tint = liftDecal(mesh(new THREE.CircleGeometry(r, 40), c, { shadow: false, rough: 1 }), lvl);
+      // Keep the tint behind the rails even from a high world-map camera.
+      tint.material.polygonOffsetFactor = -0.1; tint.material.polygonOffsetUnits = -1;
       tint.rotation.x = -Math.PI / 2;
       tint.position.set(x, 0.035 + i * 0.004, z);
       scene.add(tint);
@@ -1493,7 +1495,18 @@ let volcanoT = 1;
   makeJungleTree(455, 30, -0.5);
   makeJungleTree(405, 68, 2.5);
   makeJungleTree(448, 62, 0.8);
-  const volcano = cone(20, 30, 0x6a554a, { rough: 1, seg: 26 });
+  const shell = new THREE.ConeGeometry(20, 30, 40, 16, true).toNonIndexed();
+  const vertices = shell.attributes.position, faces = [];
+  for (let i = 0; i < vertices.count; i += 3) {
+    const x = (vertices.getX(i) + vertices.getX(i + 1) + vertices.getX(i + 2)) / 3;
+    const y = (vertices.getY(i) + vertices.getY(i + 1) + vertices.getY(i + 2)) / 3;
+    const z = (vertices.getZ(i) + vertices.getZ(i + 1) + vertices.getZ(i + 2)) / 3;
+    if (Math.abs(x) < 7 && y < -5.5 && z > 0) continue;
+    for (let j = 0; j < 3; j++) faces.push(vertices.getX(i + j), vertices.getY(i + j), vertices.getZ(i + j));
+  }
+  const shellGeometry = new THREE.BufferGeometry();
+  shellGeometry.setAttribute('position', new THREE.Float32BufferAttribute(faces, 3)); shellGeometry.computeVertexNormals(); shell.dispose();
+  const volcano = mesh(shellGeometry, 0x6a554a, { rough: 1 });
   volcano.position.set(volcanoCrater.x, 14.4, volcanoCrater.z);
   scene.add(volcano);
   const lava = cone(5.5, 4, 0xff5a2a, { shadow: false, seg: 18 });
@@ -2485,6 +2498,7 @@ function reverseTrain(train) {
   doReverse(train);
 }
 function doReverse(train) {
+  train.passageBlocked = false;
   // Offsets are measured back from the motion lead. The vehicle array stays
   // in engine-to-tail order, so after one reversal its last entry is the lead,
   // not the rear. Reverse around the greatest offset to keep every offset
@@ -2811,6 +2825,7 @@ function updateTenderFall(train, dt) {
 function wrongWaySwitchU(cur) {
   const node = cur.dir > 0 ? NODES[cur.seg.to] : NODES[cur.seg.from];
   const end = cur.dir > 0 ? 'to' : 'from';
+  if (node.autoMerge || node.terminal) return -1;
   if (node.trunk.seg === cur.seg.id && node.trunk.end === end) return -1;
   const sel = node.branches[node.sel];
   if (sel.seg === cur.seg.id && sel.end === end) return -1;
@@ -2851,8 +2866,12 @@ function advanceChain(train) {
 function updateTrain(train, dt) {
   if (adventure.passage && adventure.passage.train === train) return;
   if (train.state === 'crashed') { updateCrash(train, dt); return; }
+  if (train.passageBlocked && !train.revPending) { train.v = 0; return; }
   updateTenderFall(train, dt);
   if (train.state === 'jump') { updateJump(train, dt); return; }
+  // Queue additional trains at the mouth while the camera is riding another
+  // consist through the portal. They must not roll into its hidden endpoint.
+  if (adventure.passage && volcanoPassageDirection(train)) { train.v = 0; return; }
 
   let want = train.targetMph * SCALE;
   if (train.revPending) {
@@ -2889,7 +2908,7 @@ function updateTrain(train, dt) {
     if (!train.endToot && train.u > endU - 6) {
       train.endToot = true;
       audio.horn(train.def.horn, 0.5);
-      showBanner(adventure.unlocked ? '🚂 Into the volcano!' : '🔀 Open the tunnel switch!', '#fff');
+      showBanner('🚂 Tunnel ahead!', '#fff');
     }
   } else {
     train.endToot = false;
@@ -3332,6 +3351,10 @@ function stationView(st) {
   };
 }
 function updateCamera(dt, t) {
+  // Portrait overviews pull back much farther than a cab camera. Increase depth
+  // precision there so the cavern floor and its thin lava/rail layers stay clean.
+  const near = !adventure.passage && cam.mode === 'poi' && cam.poi && cam.poi.worldId === 'volcano' ? 4 : 0.5;
+  if (camera.near !== near) { camera.near = near; camera.updateProjectionMatrix(); }
   if (adventure.passage) {
     camera.position.copy(camPos); camera.lookAt(camLook); return;
   }
@@ -3445,7 +3468,7 @@ STATIONS.forEach((st, i) => {
   const b = document.createElement('button');
   b.className = 'stBtn' + (i === 0 ? ' on' : '');
   b.textContent = st.emoji;
-  b.title = st.world ? adventure.worlds[st.world].name + ' station' : 'Station ' + (i + 1);
+  b.title = st.name || (st.world ? adventure.worlds[st.world].name + ' station' : 'Station ' + (i + 1));
   b.setAttribute('aria-label', b.title);
   b.hidden = !!st.world;
   b.addEventListener('click', () => selectStation(i));
@@ -3612,21 +3635,33 @@ function cycleTrain(dir) {
 // the far node. the hist chain points along travel, so this stays correct
 // when the train is running in reverse
 function toggleUpcoming(train) {
+  if (train.passageBlocked) return beginVolcanoPassage(train);
   const cur = train.hist[train.hist.length - 1];
   if (cur.seg === HARBOR && train.u < gapStartU(cur.dir)) {
     setBridge(!bridge.up);
     return true;
   }
-  const node = cur.dir > 0 ? NODES[cur.seg.to] : NODES[cur.seg.from];
-  if (node === NODES.NJB) { useVolcanoDoor(train); return true; }
-  const sw = switches.find(s => s.node === node);
-  if (sw) { toggleSwitch(sw); return true; }
+  let leg = cur;
+  for (let i = 0; i < 12; i++) {
+    const node = leg.dir > 0 ? NODES[leg.seg.to] : NODES[leg.seg.from];
+    const sw = switches.find(s => s.node === node);
+    if (sw) { toggleSwitch(sw); return true; }
+    if (node.terminal) return false;
+    const end = leg.dir > 0 ? 'to' : 'from';
+    const next = node.trunk.seg === leg.seg.id && node.trunk.end === end ? node.branches[node.sel] : node.trunk;
+    leg = { seg: SEGS[next.seg], dir: next.end === 'from' ? 1 : -1 };
+  }
   return false;
 }
-const SWITCH_KEY_ORDER = ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'k', 'j', 'l', 'n'];
+function nearestSwitchForKey(key) {
+  const train = adventureTrain();
+  const origin = train ? vehicleFrame(train, train.u).p : camLook;
+  return switches.filter(sw => sw.node.key.toLowerCase() === key.toLowerCase())
+    .sort((a, b) => a.node.pos.distanceToSquared(origin) - b.node.pos.distanceToSquared(origin))[0];
+}
 function pressKey(key, code) {
   const k = (key || '').toLowerCase();
-  const swIdx = SWITCH_KEY_ORDER.indexOf(k);
+  const keySwitch = nearestSwitchForKey(k);
   if (code === 'Space' || key === ' ') {
     // in follow mode, space silently flips whatever is coming up next
     // (the horn lives on S now)
@@ -3639,7 +3674,7 @@ function pressKey(key, code) {
   else if (key >= '1' && key <= '6') TRAIN_DEFS[+key - 1].btn.click();
   else if (key >= '7' && key <= '9') selectStation(+key - 7);
   else if (key === '0') selectStation(3);
-  else if (swIdx >= 0 && switches[swIdx]) toggleSwitch(switches[swIdx]);
+  else if (keySwitch) toggleSwitch(keySwitch);
   else if (k === 'b') $('bridgeBtn').click();
   else if (k === 'd') toggleSpawnDir();
   else if (k === 'g') goBtn.click();
@@ -3929,9 +3964,10 @@ window.addEventListener('keydown', wakeAudio);
 
 initAdventureUI();
 applyTestParams();
-if (PARAMS.has('world') && adventure.worlds[PARAMS.get('world')]) {
-  if (PARAMS.get('world') === 'magic') unlockStarGarden(false);
-  visitAdventureWorld(PARAMS.get('world'));
+const initialWorld = PARAMS.get('world') === 'magic' ? 'volcano' : PARAMS.get('world');
+if (initialWorld && adventure.worlds[initialWorld]) {
+  if (initialWorld === 'volcano') unlockVolcano(false);
+  visitAdventureWorld(initialWorld);
 }
 if (PARAMS.has('tour')) { cam.mode = 'tour'; cam.target = null; }
 if (PARAMS.has('help')) toggleHelp();
